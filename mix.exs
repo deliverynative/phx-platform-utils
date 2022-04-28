@@ -14,7 +14,7 @@ defmodule PhxPlatformUtils.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger]
+      extra_applications: [:logger, :runtime_tools, :faker]
     ]
   end
 
@@ -24,7 +24,8 @@ defmodule PhxPlatformUtils.MixProject do
       {:ecto_sql, "~> 3.6"},
       {:faker, "~> 0.17"},
       {:phoenix, "~> 1.6.6"},
-      {:phoenix_ecto, "~> 4.4"}
+      {:phoenix_ecto, "~> 4.4"},
+      {:dialyxir, "~> 0.5.0", only: [:dev], runtime: false}
     ]
   end
 end

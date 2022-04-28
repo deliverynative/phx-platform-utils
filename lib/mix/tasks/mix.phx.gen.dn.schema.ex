@@ -3,12 +3,21 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Schema do
   use Mix.Task
   alias Mix.Dn.Schema
 
-  @switches [migration: :boolean, binary_id: :boolean, table: :string, web: :string, context_app: :string, prefix: :string]
+  @switches [
+    migration: :boolean,
+    binary_id: :boolean,
+    table: :string,
+    web: :string,
+    context_app: :string,
+    prefix: :string
+  ]
 
   @doc false
   def run(args) do
     if Mix.Project.umbrella?() do
-      Mix.raise("mix phx.gen.schema must be invoked from within your *_web application root directory")
+      Mix.raise(
+        "mix phx.gen.schema must be invoked from within your *_web application root directory"
+      )
     end
 
     schema = build(args, [])
@@ -61,7 +70,11 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Schema do
     Mix.Dn.copy_from(paths, "priv/templates/phx.gen.dn.schema", binding, files)
 
     if schema.migration? do
-      migration_path = Mix.Dn.context_app_path(ctx_app, "priv/repo/migrations/#{timestamp()}_create_#{schema.table}.exs")
+      migration_path =
+        Mix.Dn.context_app_path(
+          ctx_app,
+          "priv/repo/migrations/#{timestamp()}_create_#{schema.table}.exs"
+        )
 
       Mix.Dn.copy_from(paths, "priv/templates/phx.gen.dn.schema", binding, [
         {:eex, "migration.exs", migration_path}
@@ -85,10 +98,14 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Schema do
   def validate_args!([schema, plural | _] = args, help) do
     cond do
       not Schema.valid?(schema) ->
-        help.raise_with_help("Expected the schema argument, #{inspect(schema)}, to be a valid module name")
+        help.raise_with_help(
+          "Expected the schema argument, #{inspect(schema)}, to be a valid module name"
+        )
 
       String.contains?(plural, ":") or plural != Phoenix.Naming.underscore(plural) ->
-        help.raise_with_help("Expected the plural argument, #{inspect(plural)}, to be all lowercase using snake_case convention")
+        help.raise_with_help(
+          "Expected the plural argument, #{inspect(plural)}, to be all lowercase using snake_case convention"
+        )
 
       true ->
         args
