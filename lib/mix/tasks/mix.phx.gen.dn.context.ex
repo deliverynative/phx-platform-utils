@@ -263,6 +263,7 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
   end
 
   @doc false
+  @dialyzer {:nowarn_function, raise_with_help: 1}
   def raise_with_help(msg) do
     Mix.raise("""
     #{msg}
