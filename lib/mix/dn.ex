@@ -185,7 +185,7 @@ defmodule Mix.Dn do
   and falls back to Phoenix's `priv` directory.
   """
   def generator_paths do
-    [".", :phoenix]
+    [".", :phoenix, :phx_platform_utils]
   end
 
   @doc """
