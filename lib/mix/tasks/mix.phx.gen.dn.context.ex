@@ -3,7 +3,7 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
 
   @moduledoc """
   Generates a context with functions around an Ecto schema.
-      $ mix phx.gen.context Accounts User users name:string age:integer
+      $ mix phx.gen.dn.context Accounts User users name:string age:integer
   The first argument is the context module followed by the schema module
   and its plural name (used as the schema table name).
   The context is an Elixir module that serves as an API boundary for
@@ -80,6 +80,9 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
     {context, schema} = build(args)
     binding = [context: context, schema: schema]
     paths = Mix.Dn.generator_paths()
+
+    IO.puts("paths")
+    IO.inspect(paths)
 
     prompt_for_conflicts(context)
     prompt_for_code_injection(context)
