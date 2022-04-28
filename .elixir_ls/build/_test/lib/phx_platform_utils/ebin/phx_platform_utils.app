@@ -1,0 +1,11 @@
+{application,phx_platform_utils,
+             [{applications,[kernel,stdlib,elixir,logger,ecto_sql,faker,
+                             phoenix,phoenix_ecto]},
+              {description,"phx_platform_utils"},
+              {modules,['Elixir.Mix.Dn','Elixir.Mix.Dn.Context',
+                        'Elixir.Mix.Dn.Schema',
+                        'Elixir.Mix.Tasks.Phx.Gen.Dn.Context',
+                        'Elixir.Mix.Tasks.Phx.Gen.Dn.Schema',
+                        'Elixir.PhxPlatformUtils']},
+              {registered,[]},
+              {vsn,"0.1.0"}]}.
