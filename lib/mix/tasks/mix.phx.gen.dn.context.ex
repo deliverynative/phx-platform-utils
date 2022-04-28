@@ -81,6 +81,9 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
     binding = [context: context, schema: schema]
     paths = Mix.Dn.generator_paths()
 
+    IO.puts("paths")
+    IO.inspect(paths)
+
     prompt_for_conflicts(context)
     prompt_for_code_injection(context)
 
