@@ -64,8 +64,6 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Schema do
 
   @doc false
   def copy_new_files(%Schema{context_app: ctx_app} = schema, paths, binding) do
-    IO.puts("binding")
-    IO.inspect(binding)
     files = files_to_be_generated(schema)
     Mix.Dn.copy_from(paths, "priv/templates/phx.gen.dn.schema", binding, files)
 

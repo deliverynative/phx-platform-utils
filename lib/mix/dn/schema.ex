@@ -88,7 +88,6 @@ defmodule Mix.Dn.Schema do
     generate? = Keyword.get(opts, :schema, true)
 
     faker_attrs = Enum.map(attrs, &determine_faker_attr(&1))
-    IO.inspect(faker_attrs)
 
     singular =
       module

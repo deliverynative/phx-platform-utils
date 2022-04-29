@@ -81,9 +81,6 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
     binding = [context: context, schema: schema]
     paths = Mix.Dn.generator_paths()
 
-    IO.puts("paths")
-    IO.inspect(paths)
-
     prompt_for_conflicts(context)
     prompt_for_code_injection(context)
 
@@ -105,8 +102,6 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
     schema_module = inspect(Module.concat(context_name, schema_name))
     schema = GenDnSchema.build([schema_module, plural | schema_args], opts, help)
     context = Context.new(context_name, schema, opts)
-    IO.puts("context")
-    IO.inspect(context)
     {context, schema}
   end
 
