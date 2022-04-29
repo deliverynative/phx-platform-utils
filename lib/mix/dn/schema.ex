@@ -1,7 +1,8 @@
 defmodule Mix.Dn.Schema do
   @moduledoc false
-
   alias Mix.Dn.Schema
+
+  alias Faker
 
   defstruct module: nil,
             resource: nil,
@@ -12,6 +13,7 @@ defmodule Mix.Dn.Schema do
             generate?: true,
             opts: [],
             alias: nil,
+            faker_attrs: nil,
             file: nil,
             attrs: [],
             string_attr: nil,
@@ -85,6 +87,9 @@ defmodule Mix.Dn.Schema do
     embedded? = Keyword.get(opts, :embedded, false)
     generate? = Keyword.get(opts, :schema, true)
 
+    faker_attrs = Enum.map(attrs, &determine_faker_attr(&1))
+    IO.inspect(faker_attrs)
+
     singular =
       module
       |> Module.split()
@@ -119,6 +124,7 @@ defmodule Mix.Dn.Schema do
       alias: module |> Module.split() |> List.last() |> Module.concat(nil),
       file: file,
       attrs: attrs,
+      faker_attrs: faker_attrs,
       plural: schema_plural,
       singular: singular,
       collection: collection,
@@ -180,6 +186,48 @@ defmodule Mix.Dn.Schema do
 
   defp split_flags(rest, name, attrs, uniques, redacts),
     do: {[Enum.join([name | Enum.reverse(rest)], ":") | attrs], uniques, redacts}
+
+  @doc """
+  Parses the attrs as received by generators.
+  Based on types available https://hexdocs.pm/phoenix/Mix.Tasks.Phx.Gen.Schema.html
+  and Faker available https://github.com/elixirs/faker/tree/master/lib/faker
+  """
+  def determine_faker_attr({column, type}) do
+    case {column, type} do
+      {col, :string} ->
+        {col, Faker.Cat, :name}
+
+      {col, :uuid} ->
+        {col, Faker.UUID, :v4}
+
+      {col, :integer} ->
+        {col, Faker.Random, :random_between, [0, 100]}
+
+      {col, :float} ->
+        {col, Faker.Random, :random_between, [0.0, 10.0]}
+
+      {col, :decimal} ->
+        {col, Faker.Random, :random_between, [0.0, 10.0]}
+
+      {col, :boolean} ->
+        {col, Faker.Util, :pick, [true, false]}
+
+      {col, :text} ->
+        {col, Faker.Pokemon, :En, :name}
+
+      {col, :date} ->
+        {col, Faker.Date, :backward, [10]}
+
+      {col, :utc_datetime} ->
+        {col, Faker.DateTime, :backward, [10]}
+
+      {col, :utc_datetime_usec} ->
+        {col, Faker.DateTime, :backward, [10]}
+
+      {col, _} ->
+        {col, nil}
+    end
+  end
 
   @doc """
   Parses the attrs as received by generators.
