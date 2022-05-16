@@ -25,5 +25,6 @@ phx_platform_utils-*.tar
 # Temporary files, for example, from tests.
 /tmp/
 
+.env
 
 .elixir_ls
