@@ -1,8 +1,9 @@
 defmodule <%= inspect context.module %>.Factory do
   require Faker
-  use <%= inspect context.base_module %>.Factory
+  use PhxPlatformUtils.Utils.Factory
 
   alias <%= inspect context.module %>.Model
+  alias <%= inspect context.base_module %>.Repo
 
   def generate() do
     %Model{
@@ -13,5 +14,10 @@ defmodule <%= inspect context.module %>.Factory do
       <%= for {col, mod, func, args} <- schema.faker_attrs do %>
       <%= col %>: <%= inspect mod %>.<%= func %>(<%= Enum.join(args, ", ") %>),<% end %>
     }
+  end
+
+  def insert!(attrs) do
+    attrs
+    |> Repo.insert!()
   end
 end

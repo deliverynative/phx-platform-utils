@@ -1,5 +1,5 @@
 defmodule <%= inspect schema.module %>.Model do
-  use  <%= inspect context.context_module %>.Schema
+  use  PhxPlatformUtils.Utils.Schema
   import Ecto.Changeset
 <%= if schema.prefix do %>
   @schema_prefix :<%= schema.prefix %><% end %><%= if schema.binary_id do %>
