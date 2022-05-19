@@ -1,13 +1,6 @@
 name: Run Unit Tests
 
-on:
-  workflow_call:
-  workflow_dispatch:
-  push:
-    # main has a custom workflow which sequences testing and deployment
-    branches-ignore:
-      - main
-      - staging
+on: workflow_call
 
 jobs:
   build-and-test:
