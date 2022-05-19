@@ -28,3 +28,5 @@ phx_platform_utils-*.tar
 .env
 
 .elixir_ls
+
+.vscode
