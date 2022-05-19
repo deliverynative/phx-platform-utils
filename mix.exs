@@ -22,8 +22,6 @@ defmodule PhxPlatformUtils.MixProject do
   defp deps do
     [
       {:ecto_sql, "~> 3.6"},
-      {:aws, "~> 0.10.0"},
-      {:aws_credentials, git: "https://github.com/aws-beam/aws_credentials"},
       {:faker, "~> 0.17"},
       {:phoenix, "~> 1.6.6"},
       {:phoenix_ecto, "~> 4.4"}
