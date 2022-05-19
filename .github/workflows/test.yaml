@@ -1,0 +1,73 @@
+name: Run Unit Tests
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    # main has a custom workflow which sequences testing and deployment
+    branches-ignore:
+      - main
+      - staging
+
+jobs:
+  build-and-test:
+    services:
+      postgres:
+        image: postgres:12
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test
+          POSTGRES_PORT: 5432
+
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    runs-on: ubuntu-latest
+    env:
+      ENV: test
+      MIX_ENV: test
+      DB_NAME: test
+      DB_HOST: localhost
+      DB_PORT: 5432
+    strategy:
+      matrix:
+        otp: ["24"]
+        elixir: ["1.13.2"]
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{matrix.otp}}
+          elixir-version: ${{matrix.elixir}}
+
+      - name: Cache elixir packages
+        id: cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-
+
+      - name: Install Dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: mix deps.get
+
+      - name: Compile Dependencies
+        run: mix deps.compile
+
+      - name: Test
+
+        run: mix test
