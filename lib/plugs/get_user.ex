@@ -9,8 +9,7 @@ defmodule PhxPlatformUtils.Plugs.GetUser do
       |> get_token!()
       |> decode_token!()
 
-    conn
-    |> put_session(:user, user)
+    assign(conn, :user, user)
   end
 
   defp get_token!(conn) do
