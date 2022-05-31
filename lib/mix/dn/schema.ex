@@ -200,13 +200,13 @@ defmodule Mix.Dn.Schema do
         {col, Faker.UUID, :v4}
 
       {col, :integer} ->
-        {col, Faker.Random, :random_between, [0, 100]}
+        {col, Faker.Random.Elixir, :random_between, [0, 100]}
 
       {col, :float} ->
-        {col, Faker.Random, :random_between, [0.0, 10.0]}
+        {col, Faker.Random.Elixir, :random_between, [0.0, 10.0]}
 
       {col, :decimal} ->
-        {col, Faker.Random, :random_between, [0.0, 10.0]}
+        {col, Faker.Random.Elixir, :random_between, [0.0, 10.0]}
 
       {col, :boolean} ->
         {col, Faker.Util, :pick, [true, false]}
