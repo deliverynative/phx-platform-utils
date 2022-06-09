@@ -209,7 +209,7 @@ defmodule Mix.Dn.Schema do
         {col, Faker.Random.Elixir, :random_between, [0.0, 10.0]}
 
       {col, :boolean} ->
-        {col, Faker.Util, :pick, [true, false]}
+        {col, Faker.Util, :pick, [[true, false]]}
 
       {col, :text} ->
         {col, Faker.Pokemon, :En, :name}
