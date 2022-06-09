@@ -194,34 +194,34 @@ defmodule Mix.Dn.Schema do
   def determine_faker_attr({column, type}) do
     case {column, type} do
       {col, :string} ->
-        {col, Faker.Cat, :name}
+        {col, "Faker.Cat.name()"}
 
       {col, :uuid} ->
-        {col, Faker.UUID, :v4}
+        {col, "Faker.UUID.v4()"}
 
       {col, :integer} ->
-        {col, Faker.Random.Elixir, :random_between, [0, 100]}
+        {col, "Faker.Random.Elixir.random_between(0, 100)"}
 
       {col, :float} ->
-        {col, Faker.Random.Elixir, :random_between, [0.0, 10.0]}
+        {col, "Faker.Random.Elixir.random_between(0, 10)"}
 
       {col, :decimal} ->
-        {col, Faker.Random.Elixir, :random_between, [0.0, 10.0]}
+        {col, "Decimal.from_float(Faker.Random.Elixir.random_between(0, 10)/2)"}
 
       {col, :boolean} ->
-        {col, Faker.Util, :pick, [[true, false]]}
+        {col, "Faker.Util.pick([true, false])"}
 
       {col, :text} ->
-        {col, Faker.Pokemon, :En, :name}
+        {col, "Faker.Pokemon.En.name()"}
 
       {col, :date} ->
-        {col, Faker.Date, :backward, [10]}
+        {col, "Faker.Date.backward(10)"}
 
       {col, :utc_datetime} ->
-        {col, Faker.DateTime, :backward, [10]}
+        {col, "Faker.DateTime.backward(10)"}
 
       {col, :utc_datetime_usec} ->
-        {col, Faker.DateTime, :backward, [10]}
+        {col, "Faker.DateTime.backward(10)"}
 
       {col, _} ->
         {col, nil}
