@@ -23,6 +23,7 @@ defmodule PhxPlatformUtils.MixProject do
     [
       {:ecto_sql, "~> 3.6"},
       {:faker, "~> 0.17"},
+      {:joi, "~> 0.2.1"},
       {:phoenix, "~> 1.6.6"},
       {:phoenix_ecto, "~> 4.4"}
     ]
