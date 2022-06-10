@@ -1,6 +1,8 @@
 defmodule Mix.Dn.Schema do
   @moduledoc false
+  alias Mix.Dn.Args
   alias Mix.Dn.Schema
+  alias Mix.Dn.Types
 
   alias Faker
 
@@ -49,7 +51,10 @@ defmodule Mix.Dn.Schema do
     :map,
     :string,
     :array,
-    :references,
+    :belongs_to,
+    :has_many,
+    :has_one,
+    :many_to_many,
     :text,
     :date,
     :time,
@@ -69,7 +74,7 @@ defmodule Mix.Dn.Schema do
     schema =~ ~r/^[A-Z]\w*(\.[A-Z]\w*)*$/
   end
 
-  def new(schema_name, schema_plural, cli_attrs, opts) do
+  def new(schema_name, schema_plural, cli_attributes, opts) do
     ctx_app = opts[:context_app] || Mix.Phoenix.context_app()
     otp_app = Mix.Phoenix.otp_app()
     opts = Keyword.merge(Application.get_env(otp_app, :generators, []), opts)
@@ -79,29 +84,32 @@ defmodule Mix.Dn.Schema do
     repo = opts[:repo] || Module.concat([base, "Repo"])
     file = Mix.Dn.context_lib_path(ctx_app, basename <> "/model.ex")
     table = opts[:table] || schema_plural
-    {cli_attrs, uniques, redacts} = extract_attr_flags(cli_attrs)
-    {assocs, attrs} = partition_attrs_and_assocs(module, attrs(cli_attrs))
-    types = types(attrs)
+    {extracted_attributes, uniques, redacts} = Args.extract_attribute_flags(cli_attributes)
+    {associations, attributes} = Args.partition_associations_from_attributes(module, Args.parse_attributes(extracted_attributes))
+    types = Types.types(attributes)
     web_namespace = opts[:web] && Phoenix.Naming.camelize(opts[:web])
     web_path = web_namespace && Phoenix.Naming.underscore(web_namespace)
     embedded? = Keyword.get(opts, :embedded, false)
     generate? = Keyword.get(opts, :schema, true)
 
-    faker_attrs = Enum.map(attrs, &determine_faker_attr(&1))
+    IO.inspect(assocs)
+    IO.puts("!!@#@$)(#$)#($*#)($*")
+    IO.inspect(attrs)
+    faker_attrs = Enum.map(attrs, &Types.determine_faker_generator_for_type(&1))
 
-    singular =
+    singular_entity_name =
       module
       |> Module.split()
       |> List.last()
       |> Phoenix.Naming.underscore()
 
-    resource =
+    resource_entity_name =
       module
       |> Module.split()
       |> List.last()
 
-    collection = if schema_plural == singular, do: singular <> "_collection", else: schema_plural
-    string_attr = string_attr(types)
+    collection = if schema_plural == singular_entity_name, do: singular_entity_name <> "_collection", else: schema_plural
+    string_attribute = Args.string_attribute(types)
     create_params = params(attrs, :create)
 
     default_params_key =
@@ -110,13 +118,13 @@ defmodule Mix.Dn.Schema do
         nil -> :some_field
       end
 
-    fixture_unique_functions = fixture_unique_functions(singular, uniques, attrs)
+    fixture_unique_functions = fixture_unique_functions(singular_entity_name, uniques, attrs)
 
     %Schema{
       opts: opts,
       migration?: Keyword.get(opts, :migration, true),
       module: module,
-      resource: resource,
+      resource: resource_entity_name,
       repo: repo,
       table: table,
       embedded?: embedded?,
@@ -137,11 +145,11 @@ defmodule Mix.Dn.Schema do
       human_plural: Phoenix.Naming.humanize(schema_plural),
       binary_id: opts[:binary_id],
       migration_defaults: migration_defaults(attrs),
-      string_attr: string_attr,
+      string_attr: string_attribute,
       params: %{
         create: create_params,
         update: params(attrs, :update),
-        default_key: string_attr || default_params_key
+        default_key: string_attribute || default_params_key
       },
       web_namespace: web_namespace,
       web_path: web_path,
@@ -166,90 +174,15 @@ defmodule Mix.Dn.Schema do
     |> to_string()
   end
 
-  def extract_attr_flags(cli_attrs) do
-    {attrs, uniques, redacts} =
-      Enum.reduce(cli_attrs, {[], [], []}, fn attr, {attrs, uniques, redacts} ->
-        [attr_name | rest] = String.split(attr, ":")
-        attr_name = String.to_atom(attr_name)
-        split_flags(Enum.reverse(rest), attr_name, attrs, uniques, redacts)
-      end)
-
-    {Enum.reverse(attrs), uniques, redacts}
-  end
-
-  defp split_flags(["unique" | rest], name, attrs, uniques, redacts),
-    do: split_flags(rest, name, attrs, [name | uniques], redacts)
-
-  defp split_flags(["redact" | rest], name, attrs, uniques, redacts),
-    do: split_flags(rest, name, attrs, uniques, [name | redacts])
-
-  defp split_flags(rest, name, attrs, uniques, redacts),
-    do: {[Enum.join([name | Enum.reverse(rest)], ":") | attrs], uniques, redacts}
-
-  @doc """
-  Parses the attrs as received by generators.
-  Based on types available https://hexdocs.pm/phoenix/Mix.Tasks.Phx.Gen.Schema.html
-  and Faker available https://github.com/elixirs/faker/tree/master/lib/faker
-  """
-  def determine_faker_attr({column, type}) do
-    case {column, type} do
-      {col, :string} ->
-        {col, "Faker.Cat.name()"}
-
-      {col, :uuid} ->
-        {col, "Faker.UUID.v4()"}
-
-      {col, :integer} ->
-        {col, "Faker.Random.Elixir.random_between(0, 100)"}
-
-      {col, :float} ->
-        {col, "Faker.Random.Elixir.random_between(0, 10)"}
-
-      {col, :decimal} ->
-        {col, "Decimal.from_float(Faker.Random.Elixir.random_between(0, 10)/2)"}
-
-      {col, :boolean} ->
-        {col, "Faker.Util.pick([true, false])"}
-
-      {col, :text} ->
-        {col, "Faker.Pokemon.En.name()"}
-
-      {col, :date} ->
-        {col, "Faker.Date.backward(10)"}
-
-      {col, :utc_datetime} ->
-        {col, "Faker.DateTime.backward(10)"}
-
-      {col, :utc_datetime_usec} ->
-        {col, "Faker.DateTime.backward(10)"}
-
-      {col, _} ->
-        {col, nil}
-    end
-  end
-
-  @doc """
-  Parses the attrs as received by generators.
-  """
-  def attrs(attrs) do
-    Enum.map(attrs, fn attr ->
-      attr
-      |> String.split(":", parts: 3)
-      |> list_to_attr()
-      |> validate_attr!()
-    end)
-  end
-
   @doc """
   Generates some sample params based on the parsed attributes.
   """
   def params(attrs, action \\ :create) when action in [:create, :update] do
     attrs
-    |> Enum.reject(fn
-      {_, {:references, _}} -> true
-      {_, _} -> false
+    |> Args.reject_relational_attributes()
+    |> Enum.into(%{}, fn {attribute_name, type} ->
+      {k, Types.type_to_default(attribute_name, type, action)}
     end)
-    |> Enum.into(%{}, fn {k, t} -> {k, type_to_default(k, t, action)} end)
   end
 
   @doc """
@@ -341,122 +274,6 @@ defmodule Mix.Dn.Schema do
   defp inspect_value(:decimal, value), do: "Decimal.new(\"#{value}\")"
   defp inspect_value(_type, value), do: inspect(value)
 
-  defp list_to_attr([key]), do: {String.to_atom(key), :string}
-  defp list_to_attr([key, value]), do: {String.to_atom(key), String.to_atom(value)}
-
-  defp list_to_attr([key, comp, value]) do
-    {String.to_atom(key), {String.to_atom(comp), String.to_atom(value)}}
-  end
-
-  @one_day_in_seconds 24 * 3600
-
-  defp type_to_default(key, t, :create) do
-    case t do
-      {:array, _} ->
-        []
-
-      {:enum, values} ->
-        build_enum_values(values, :create)
-
-      :integer ->
-        42
-
-      :float ->
-        120.5
-
-      :decimal ->
-        "120.5"
-
-      :boolean ->
-        true
-
-      :map ->
-        %{}
-
-      :text ->
-        "some #{key}"
-
-      :date ->
-        Date.add(Date.utc_today(), -1)
-
-      :time ->
-        ~T[14:00:00]
-
-      :time_usec ->
-        ~T[14:00:00.000000]
-
-      :uuid ->
-        "7488a646-e31f-11e4-aace-600308960662"
-
-      :utc_datetime ->
-        DateTime.add(
-          build_utc_datetime(),
-          -@one_day_in_seconds,
-          :second,
-          Calendar.UTCOnlyTimeZoneDatabase
-        )
-
-      :utc_datetime_usec ->
-        DateTime.add(
-          build_utc_datetime_usec(),
-          -@one_day_in_seconds,
-          :second,
-          Calendar.UTCOnlyTimeZoneDatabase
-        )
-
-      :naive_datetime ->
-        NaiveDateTime.add(build_utc_naive_datetime(), -@one_day_in_seconds)
-
-      :naive_datetime_usec ->
-        NaiveDateTime.add(build_utc_naive_datetime_usec(), -@one_day_in_seconds)
-
-      _ ->
-        "some #{key}"
-    end
-  end
-
-  defp type_to_default(key, t, :update) do
-    case t do
-      {:array, _} -> []
-      {:enum, values} -> build_enum_values(values, :update)
-      :integer -> 43
-      :float -> 456.7
-      :decimal -> "456.7"
-      :boolean -> false
-      :map -> %{}
-      :text -> "some updated #{key}"
-      :date -> Date.utc_today()
-      :time -> ~T[15:01:01]
-      :time_usec -> ~T[15:01:01.000000]
-      :uuid -> "7488a646-e31f-11e4-aace-600308960668"
-      :utc_datetime -> build_utc_datetime()
-      :utc_datetime_usec -> build_utc_datetime_usec()
-      :naive_datetime -> build_utc_naive_datetime()
-      :naive_datetime_usec -> build_utc_naive_datetime_usec()
-      _ -> "some updated #{key}"
-    end
-  end
-
-  defp build_enum_values(values, action) do
-    case {action, translate_enum_vals(values)} do
-      {:create, vals} -> hd(vals)
-      {:update, [val | []]} -> val
-      {:update, vals} -> vals |> tl() |> hd()
-    end
-  end
-
-  defp build_utc_datetime_usec,
-    do: %{DateTime.utc_now() | second: 0, microsecond: {0, 6}}
-
-  defp build_utc_datetime,
-    do: DateTime.truncate(build_utc_datetime_usec(), :second)
-
-  defp build_utc_naive_datetime_usec,
-    do: %{NaiveDateTime.utc_now() | second: 0, microsecond: {0, 6}}
-
-  defp build_utc_naive_datetime,
-    do: NaiveDateTime.truncate(build_utc_naive_datetime_usec(), :second)
-
   @enum_missing_value_error """
   Enum type requires at least one value
   For example:
@@ -464,96 +281,11 @@ defmodule Mix.Dn.Schema do
       mix phx.gen.schema Comment comments body:text status:enum:published:unpublished
   """
 
-  defp validate_attr!({name, :datetime}), do: validate_attr!({name, :naive_datetime})
-
-  defp validate_attr!({name, :array}) do
-    Mix.raise("""
-    Phoenix generators expect the type of the array to be given to #{name}:array.
-    For example:
-
-        mix phx.gen.schema Post posts settings:array:string
-    """)
-  end
-
-  defp validate_attr!({_name, :enum}), do: Mix.raise(@enum_missing_value_error)
-  defp validate_attr!({_name, type} = attr) when type in @valid_types, do: attr
-  defp validate_attr!({_name, {:enum, _vals}} = attr), do: attr
-  defp validate_attr!({_name, {type, _}} = attr) when type in @valid_types, do: attr
-
-  defp validate_attr!({_, type}) do
-    Mix.raise(
-      "Unknown type `#{inspect(type)}` given to generator. " <>
-        "The supported types are: #{@valid_types |> Enum.sort() |> Enum.join(", ")}"
-    )
-  end
-
-  defp partition_attrs_and_assocs(schema_module, attrs) do
-    {assocs, attrs} =
-      Enum.split_with(attrs, fn
-        {_, {:references, _}} ->
-          true
-
-        {key, :references} ->
-          Mix.raise("""
-          Phoenix generators expect the table to be given to #{key}:references.
-          For example:
-
-              mix phx.gen.schema Comment comments body:text post_id:references:posts
-          """)
-
-        _ ->
-          false
-      end)
-
-    assocs =
-      Enum.map(assocs, fn {key_id, {:references, source}} ->
-        key = String.replace(Atom.to_string(key_id), "_id", "")
-        base = schema_module |> Module.split() |> Enum.drop(-1)
-        module = Module.concat(base ++ [Phoenix.Naming.camelize(key)])
-        {String.to_atom(key), key_id, inspect(module), source}
-      end)
-
-    {assocs, attrs}
-  end
-
   defp schema_defaults(attrs) do
     Enum.into(attrs, %{}, fn
       {key, :boolean} -> {key, ", default: false"}
       {key, _} -> {key, ""}
     end)
-  end
-
-  defp string_attr(types) do
-    Enum.find_value(types, fn
-      {key, :string} -> key
-      _ -> false
-    end)
-  end
-
-  defp types(attrs) do
-    Enum.into(attrs, %{}, fn
-      {key, {:enum, vals}} -> {key, {:enum, values: translate_enum_vals(vals)}}
-      {key, {root, val}} -> {key, {root, schema_type(val)}}
-      {key, val} -> {key, schema_type(val)}
-    end)
-  end
-
-  def translate_enum_vals(vals) do
-    vals
-    |> Atom.to_string()
-    |> String.split(":")
-    |> Enum.map(&String.to_atom/1)
-  end
-
-  defp schema_type(:text), do: :string
-  defp schema_type(:uuid), do: Ecto.UUID
-
-  defp schema_type(val) do
-    if Code.ensure_loaded?(Ecto.Type) and not Ecto.Type.primitive?(val) do
-      Mix.raise("Unknown type `#{val}` given to generator")
-    else
-      val
-    end
   end
 
   defp indexes(table, assocs, uniques) do
