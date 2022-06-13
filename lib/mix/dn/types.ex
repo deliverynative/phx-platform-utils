@@ -159,7 +159,7 @@ defmodule Mix.Dn.Types do
     do: NaiveDateTime.truncate(build_utc_naive_datetime_usec(), :second)
 
   defp build_enum_values(values, action) do
-    case {action, Types.translate_enum_vals(values)} do
+    case {action, translate_enum_vals(values)} do
       {:create, vals} -> hd(vals)
       {:update, [val | []]} -> val
       {:update, vals} -> vals |> tl() |> hd()

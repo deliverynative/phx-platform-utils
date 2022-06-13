@@ -8,8 +8,11 @@ defmodule <%= inspect context.module %>.Factory do
   def generate() do
     %Model{
       # Don't forget to implement the rest of this map for fake data!
-      id: Faker.UUID.v4()<%= if length(schema.faker_attrs) > 0 do %>,<% end %>
-      <%= for {col, def} <- schema.faker_attrs do %><%= col %>: <%= def %>,
+      id: Faker.UUID.v4()<%= if length(schema.faker_attributes) > 0 do %>,
+      <% end %>
+      <%= for {col, def} <- schema.faker_attributes do %><%= col %>: <%= def %>,
+      <% end %>
+      <%= for {key, :belongs_to, _, _, _} <- schema.assocs do %><%= key %>: nil,
       <% end %>
     }
   end

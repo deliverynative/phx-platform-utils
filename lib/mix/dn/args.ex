@@ -1,4 +1,6 @@
 defmodule Mix.Dn.Args do
+  alias Inflex
+
   @doc """
   Given a list of attribute pairings, gets appropraitely split flags for {attributes with types, uniques, redacts}
   E.g.       ["my_param:decimal", "my_param:belongs_to:other_table", "donkey_name:string:unique"]
@@ -34,7 +36,7 @@ defmodule Mix.Dn.Args do
       {_, {:belongs_to, _}} -> true
       {_, {:has_one, _}} -> true
       {_, {:has_many, _}} -> true
-      {_, {:many_to_many, _}} -> true
+      # {_, {:many_to_many, _}} -> true
       _ -> false
     end)
   end
@@ -51,7 +53,40 @@ defmodule Mix.Dn.Args do
     end)
   end
 
-  #
+  @valid_types [
+    :integer,
+    :float,
+    :decimal,
+    :boolean,
+    :map,
+    :string,
+    :array,
+    :belongs_to,
+    :has_many,
+    :has_one,
+    # :many_to_many,
+    :text,
+    :date,
+    :time,
+    :time_usec,
+    :naive_datetime,
+    :naive_datetime_usec,
+    :utc_datetime,
+    :utc_datetime_usec,
+    :uuid,
+    :binary,
+    :enum
+  ]
+
+  @enum_missing_value_error """
+  Enum type requires at least one value
+  For example:
+
+      mix phx.gen.schema Comment comments body:text status:enum:published:unpublished
+  """
+
+  def valid_types, do: @valid_types
+
   defp list_to_attritbute([key]), do: {String.to_atom(key), :string}
   defp list_to_attritbute([key, value]), do: {String.to_atom(key), String.to_atom(value)}
 
@@ -64,13 +99,6 @@ defmodule Mix.Dn.Args do
   defp validate_attribute!({_name, {:enum, _vals}} = attr), do: attr
   defp validate_attribute!({_name, {type, _}} = attr) when type in @valid_types, do: attr
 
-  defp validate_attribute!({_, type}) do
-    Mix.raise(
-      "Unknown type `#{inspect(type)}` given to generator. " <>
-        "The supported types are: #{@valid_types |> Enum.sort() |> Enum.join(", ")}"
-    )
-  end
-
   defp validate_attribute!({name, :datetime}), do: validate_attribute!({name, :naive_datetime})
 
   defp validate_attribute!({name, :array}) do
@@ -78,8 +106,15 @@ defmodule Mix.Dn.Args do
     Phoenix generators expect the type of the array to be given to #{name}:array.
     For example:
 
-        mix phx.gen.schema Post posts settings:array:string
+    mix phx.gen.schema Post posts settings:array:string
     """)
+  end
+
+  defp validate_attribute!({_, type}) do
+    Mix.raise(
+      "Unknown type `#{inspect(type)}` given to generator. " <>
+        "The supported types are: #{@valid_types |> Enum.sort() |> Enum.join(", ")}"
+    )
   end
 
   def partition_associations_from_attributes(schema_module, attributes_with_associations) do
@@ -88,8 +123,8 @@ defmodule Mix.Dn.Args do
         {_, {:belongs_to, _}} ->
           true
 
-        {_, {:many_to_many, _}} ->
-          true
+        # {_, {:many_to_many, _}} ->
+        #   true
 
         {_, {:has_many, _}} ->
           true
@@ -105,13 +140,13 @@ defmodule Mix.Dn.Args do
               mix phx.gen.schema Comment comments body:text post_id:belongs_to:posts
           """)
 
-        {key, :many_to_many} ->
-          Mix.raise("""
-          Phoenix generators expect the table to be given to #{key}:many_to_many.
-          For example:
+        # {key, :many_to_many} ->
+        #   Mix.raise("""
+        #   Phoenix generators expect the table to be given to #{key}:many_to_many.
+        #   For example:
 
-              mix phx.gen.schema Comment comments body:text post_id:many_to_many:posts
-          """)
+        #       mix phx.gen.schema Comment comments body:text post_id:many_to_many:posts
+        #   """)
 
         {key, :has_many} ->
           Mix.raise("""
@@ -133,12 +168,36 @@ defmodule Mix.Dn.Args do
           false
       end)
 
+    association_fields
+    |> Enum.filter(fn {key, {relationship, _}} ->
+      string_key_last_three =
+        Atom.to_string(key)
+        |> String.slice(-3..-1)
+
+      case {string_key_last_three, relationship} do
+        {"_id", :belongs_to} -> false
+        {"_id", :has_one} -> false
+        {"_id", :has_many} -> true
+        # {"_id", :many_to_many} -> true
+        _ -> false
+      end
+    end)
+    |> Enum.map(fn {key, {relationship, source}} ->
+      Mix.raise("""
+      Bad attribute
+      Keys defined with :belongs_to or :has_one should be appended with '_id'
+      # Keys defined with :has_many should NOT be appended with '_id'
+
+      Got: #{key}:#{relationship}:#{source}
+      """)
+    end)
+
     associations =
       Enum.map(association_fields, fn {key, {relationship, source}} ->
         base = schema_module |> Module.split() |> Enum.drop(-1)
-        aliased = Phoenix.Naming.camelize(Atom.to_string(key))
-        module = Module.concat(base ++ [aliased])
-        {key, relationship, inspect(module), module, source}
+        aliased = source |> Atom.to_string() |> Inflex.singularize() |> Phoenix.Naming.camelize()
+        module = (base ++ [aliased]) |> Module.concat()
+        {key, relationship, inspect(module), aliased, source}
       end)
 
     {associations, attribute_fields}
