@@ -15,7 +15,7 @@ defmodule Mix.Dn.Schema do
             generate?: true,
             opts: [],
             alias: nil,
-            faker_attrs: nil,
+            faker_attributes: nil,
             file: nil,
             attrs: [],
             string_attr: nil,
@@ -43,33 +43,6 @@ defmodule Mix.Dn.Schema do
             fixture_params: %{},
             prefix: nil
 
-  @valid_types [
-    :integer,
-    :float,
-    :decimal,
-    :boolean,
-    :map,
-    :string,
-    :array,
-    :belongs_to,
-    :has_many,
-    :has_one,
-    :many_to_many,
-    :text,
-    :date,
-    :time,
-    :time_usec,
-    :naive_datetime,
-    :naive_datetime_usec,
-    :utc_datetime,
-    :utc_datetime_usec,
-    :uuid,
-    :binary,
-    :enum
-  ]
-
-  def valid_types, do: @valid_types
-
   def valid?(schema) do
     schema =~ ~r/^[A-Z]\w*(\.[A-Z]\w*)*$/
   end
@@ -92,10 +65,15 @@ defmodule Mix.Dn.Schema do
     embedded? = Keyword.get(opts, :embedded, false)
     generate? = Keyword.get(opts, :schema, true)
 
-    IO.inspect(assocs)
-    IO.puts("!!@#@$)(#$)#($*#)($*")
-    IO.inspect(attrs)
-    faker_attrs = Enum.map(attrs, &Types.determine_faker_generator_for_type(&1))
+    faker_attributes = Enum.map(attributes, &Types.determine_faker_generator_for_type(&1))
+
+    associations_requiring_indexes =
+      associations
+      |> Enum.filter(fn
+        {_, :belongs_to, _, _, _} -> true
+        {_, :has_one, _, _, _} -> true
+        _ -> false
+      end)
 
     singular_entity_name =
       module
@@ -110,7 +88,7 @@ defmodule Mix.Dn.Schema do
 
     collection = if schema_plural == singular_entity_name, do: singular_entity_name <> "_collection", else: schema_plural
     string_attribute = Args.string_attribute(types)
-    create_params = params(attrs, :create)
+    create_params = params(attributes, :create)
 
     default_params_key =
       case Enum.at(create_params, 0) do
@@ -118,7 +96,7 @@ defmodule Mix.Dn.Schema do
         nil -> :some_field
       end
 
-    fixture_unique_functions = fixture_unique_functions(singular_entity_name, uniques, attrs)
+    fixture_unique_functions = fixture_unique_functions(singular_entity_name, uniques, attributes)
 
     %Schema{
       opts: opts,
@@ -130,36 +108,36 @@ defmodule Mix.Dn.Schema do
       embedded?: embedded?,
       alias: module |> Module.split() |> List.last() |> Module.concat(nil),
       file: file,
-      attrs: attrs,
-      faker_attrs: faker_attrs,
+      attrs: attributes,
+      faker_attributes: faker_attributes,
       plural: schema_plural,
-      singular: singular,
+      singular: singular_entity_name,
       collection: collection,
-      assocs: assocs,
+      assocs: associations,
       types: types,
-      defaults: schema_defaults(attrs),
+      defaults: schema_defaults(attributes),
       uniques: uniques,
       redacts: redacts,
-      indexes: indexes(table, assocs, uniques),
-      human_singular: Phoenix.Naming.humanize(singular),
+      indexes: indexes(table, associations_requiring_indexes, uniques),
+      human_singular: Phoenix.Naming.humanize(singular_entity_name),
       human_plural: Phoenix.Naming.humanize(schema_plural),
       binary_id: opts[:binary_id],
-      migration_defaults: migration_defaults(attrs),
+      migration_defaults: migration_defaults(attributes),
       string_attr: string_attribute,
       params: %{
         create: create_params,
-        update: params(attrs, :update),
+        update: params(attributes, :update),
         default_key: string_attribute || default_params_key
       },
       web_namespace: web_namespace,
       web_path: web_path,
-      route_helper: route_helper(web_path, singular),
+      route_helper: route_helper(web_path, singular_entity_name),
       sample_id: sample_id(opts),
       context_app: ctx_app,
       generate?: generate?,
       migration_module: migration_module(),
       fixture_unique_functions: fixture_unique_functions,
-      fixture_params: fixture_params(attrs, fixture_unique_functions),
+      fixture_params: fixture_params(attributes, fixture_unique_functions),
       prefix: opts[:prefix]
     }
   end
@@ -181,7 +159,7 @@ defmodule Mix.Dn.Schema do
     attrs
     |> Args.reject_relational_attributes()
     |> Enum.into(%{}, fn {attribute_name, type} ->
-      {k, Types.type_to_default(attribute_name, type, action)}
+      {attribute_name, Types.type_to_default(attribute_name, type, action)}
     end)
   end
 
@@ -274,13 +252,6 @@ defmodule Mix.Dn.Schema do
   defp inspect_value(:decimal, value), do: "Decimal.new(\"#{value}\")"
   defp inspect_value(_type, value), do: inspect(value)
 
-  @enum_missing_value_error """
-  Enum type requires at least one value
-  For example:
-
-      mix phx.gen.schema Comment comments body:text status:enum:published:unpublished
-  """
-
   defp schema_defaults(attrs) do
     Enum.into(attrs, %{}, fn
       {key, :boolean} -> {key, ", default: false"}
@@ -290,7 +261,7 @@ defmodule Mix.Dn.Schema do
 
   defp indexes(table, assocs, uniques) do
     uniques = Enum.map(uniques, fn key -> {key, true} end)
-    assocs = Enum.map(assocs, fn {_, key, _, _} -> {key, false} end)
+    assocs = Enum.map(assocs, fn {key, _, _, _, _} -> {key, false} end)
 
     (uniques ++ assocs)
     |> Enum.uniq_by(fn {key, _} -> key end)
@@ -376,7 +347,7 @@ defmodule Mix.Dn.Schema do
           {attr, "#{function_name}()"}
 
         :error ->
-          {attr, inspect(type_to_default(attr, type, :create))}
+          {attr, inspect(Types.type_to_default(attr, type, :create))}
       end
     end)
   end
