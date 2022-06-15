@@ -18,8 +18,10 @@ defmodule Mix.Dn.Schema do
             faker_attributes: nil,
             file: nil,
             attrs: [],
+            castables: [],
             string_attr: nil,
             plural: nil,
+            atomic_singular: nil,
             singular: nil,
             uniques: [],
             redacts: [],
@@ -71,9 +73,13 @@ defmodule Mix.Dn.Schema do
       associations
       |> Enum.filter(fn
         {_, :belongs_to, _, _, _} -> true
-        {_, :has_one, _, _, _} -> true
         _ -> false
       end)
+
+    attributes_to_cast_and_validate =
+      associations_requiring_indexes
+      |> Enum.concat(attributes)
+      |> Enum.map(&elem(&1, 0))
 
     singular_entity_name =
       module
@@ -109,8 +115,10 @@ defmodule Mix.Dn.Schema do
       alias: module |> Module.split() |> List.last() |> Module.concat(nil),
       file: file,
       attrs: attributes,
+      castables: attributes_to_cast_and_validate,
       faker_attributes: faker_attributes,
       plural: schema_plural,
+      atomic_singular: String.to_atom(singular_entity_name),
       singular: singular_entity_name,
       collection: collection,
       assocs: associations,

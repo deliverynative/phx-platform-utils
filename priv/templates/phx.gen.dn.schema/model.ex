@@ -10,8 +10,8 @@ defmodule <%= inspect schema.module %>.Model do
   schema <%= inspect schema.table %> do
 <%= Mix.Phoenix.Schema.format_fields_for_schema(schema) %>
 <%= for {key, :belongs_to, _, alias_name, table} <- schema.assocs do %>    belongs_to <%= inspect table %>, <%= alias_name %>Model, foreign_key: <%= inspect key %><% end %>
-<%= for {key, :has_one, _, alias_name, table} <- schema.assocs do %>    has_one <%= inspect table %>, <%= alias_name %>Model, foreign_key: <%= inspect key %><% end %>
-<%= for {key, :has_many, _, alias_name, table} <- schema.assocs do %>    has_many <%= inspect table %>, <%= alias_name %>Model, foreign_key: <%= inspect key %><% end %>
+<%= for {_, :has_one, _, alias_name, table} <- schema.assocs do %>    has_one <%= inspect table %>, <%= alias_name %>Model, foreign_key: <%= inspect schema.atomic_singular %>_id<% end %>
+<%= for {_, :has_many, _, alias_name, table} <- schema.assocs do %>    has_many <%= inspect table %>, <%= alias_name %>Model, foreign_key: <%= inspect schema.atomic_singular %>_id<% end %>
 
     timestamps()
   end
@@ -19,8 +19,8 @@ defmodule <%= inspect schema.module %>.Model do
   @doc false
   def changeset(<%= schema.singular %>, attrs) do
     <%= schema.singular %>
-    |> cast(attrs, [<%= Enum.map_join(schema.attrs, ", ", &inspect(elem(&1, 0))) %>])
-    |> validate_required([<%= Enum.map_join(schema.attrs, ", ", &inspect(elem(&1, 0))) %>])
+    |> cast(attrs, [<%= Enum.map_join(schema.castables, ", ", &inspect(&1)) %>])
+    |> validate_required([<%= Enum.map_join(schema.castables, ", ", &inspect(&1)) %>])
 <%= for k <- schema.uniques do %>    |> unique_constraint(<%= inspect k %>)
 <% end %>  end
 end

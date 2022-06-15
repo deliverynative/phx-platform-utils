@@ -174,26 +174,32 @@ defmodule Mix.Dn.Args do
         Atom.to_string(key)
         |> String.slice(-3..-1)
 
-      case {string_key_last_three, relationship} do
-        {"_id", :belongs_to} -> false
-        {"_id", :has_one} -> false
-        {"_id", :has_many} -> true
-        # {"_id", :many_to_many} -> true
-        _ -> false
+      case {key, string_key_last_three, relationship} do
+        {:id, _, :has_many} -> false
+        {:id, _, :has_one} -> false
+        {_, "_id", :belongs_to} -> false
+        _ -> true
       end
     end)
     |> Enum.map(fn {key, {relationship, source}} ->
       Mix.raise("""
       Bad attribute
-      Keys defined with :belongs_to or :has_one should be appended with '_id'
-      # Keys defined with :has_many should NOT be appended with '_id'
+      Keys defined with :has_many, :has_one must be exactly "id"
+      Keys defined with :belongs_to must be appended with "_id"
 
-      Got: #{key}:#{relationship}:#{source}
+      Got:      #{key}:#{relationship}:#{source}
+
+      Expected: id:has_many:other_entity_table
+      or
+      Expected: id:has_one:other_entity_table
+      or
+      Expected: entity_id:belongs_to:other_entity_table
       """)
     end)
 
     associations =
-      Enum.map(association_fields, fn {key, {relationship, source}} ->
+      association_fields
+      |> Enum.map(fn {key, {relationship, source}} ->
         base = schema_module |> Module.split() |> Enum.drop(-1)
         aliased = source |> Atom.to_string() |> Inflex.singularize() |> Phoenix.Naming.camelize()
         module = (base ++ [aliased]) |> Module.concat()
