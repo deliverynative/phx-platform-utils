@@ -1,4 +1,17 @@
 defmodule PhxPlatformUtils.Utils.RequestHelpers do
+  defp recursively_atomize(list) when is_list(list) do
+    list
+    |> Enum.map(&recursively_atomize(&1))
+  end
+
+  defp recursively_atomize(map) when is_map(map) and not is_struct(map) do
+    map
+    |> Enum.map(fn {key, value} -> {String.to_atom(key), recursively_atomize(value)} end)
+    |> Enum.into(%{})
+  end
+
+  defp recursively_atomize(any), do: any
+
   def validate(params, validation_schema) do
     stripped_params =
       params
@@ -8,7 +21,7 @@ defmodule PhxPlatformUtils.Utils.RequestHelpers do
       {:ok, valid_params} ->
         converted_params =
           valid_params
-          |> Enum.map(fn {key, value} -> {String.to_existing_atom(key), value} end)
+          |> recursively_atomize()
 
         {:ok, converted_params}
 
