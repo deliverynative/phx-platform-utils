@@ -6,7 +6,6 @@ defmodule <%= inspect schema.repo %>.Migrations.Create<%= Macro.camelize(schema.
 <%= if schema.binary_id do %>      add :id, :binary_id, primary_key: true
 <% end %><%= for {k, v} <- schema.attrs do %>      add <%= inspect k %>, <%= inspect Mix.Phoenix.Schema.type_for_migration(v) %><%= schema.migration_defaults[k] %>
 <% end %><%= for {key, :belongs_to, _, _, other} <- schema.assocs do %>      add <%= inspect(key) %>, references(<%= inspect(other) %>, on_delete: :nothing<%= if schema.binary_id do %>, type: :binary_id<% end %>)
-<% end %><%= for {key, :has_one, _, _, other} <- schema.assocs do %>      add <%= inspect(key) %>, references(<%= inspect(other) %>, on_delete: :nothing<%= if schema.binary_id do %>, type: :binary_id<% end %>)
 <% end %>
       timestamps()
     end
