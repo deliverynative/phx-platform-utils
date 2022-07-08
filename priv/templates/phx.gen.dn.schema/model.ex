@@ -21,6 +21,7 @@ defmodule <%= inspect schema.module %>.Model do
     <%= schema.singular %>
     |> cast(attrs, [<%= Enum.map_join(schema.castables, ", ", &inspect(&1)) %>])
     |> validate_required([<%= Enum.map_join(schema.castables, ", ", &inspect(&1)) %>])
+    <%= for {key, :belongs_to, _, _, _} <- schema.assocs do %>    |> foreign_key_constraint(<%= inspect key %>)<% end %>
 <%= for k <- schema.uniques do %>    |> unique_constraint(<%= inspect k %>)
 <% end %>  end
 end
