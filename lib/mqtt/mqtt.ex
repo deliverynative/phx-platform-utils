@@ -2,8 +2,9 @@ defmodule PhxPlatformUtils.Mqtt do
   @defaults [
     port: 1883,
     host: '127.0.0.1',
-    client_id: "test",
-    subscriptions: []
+    client_id: "dev",
+    subscriptions: [],
+    env: :dev
   ]
 
   @callback config(Keyword.t()) :: Keyword.t()
@@ -58,7 +59,11 @@ defmodule PhxPlatformUtils.Mqtt do
       @impl behaviour
       def start_link(opts \\ []) do
         config = config()
-        PhxPlatformUtils.Mqtt.Client.start_link(config)
+        if config[:env] == :test do
+          {:ok, :c.pid(0,250,0)}
+        else
+          PhxPlatformUtils.Mqtt.Client.start_link(config)
+        end
       end
 
       @impl behaviour
