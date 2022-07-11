@@ -68,11 +68,13 @@ Instructions for using the mqtt client:
 
 4. Add your connection info to your config file.
   * Port must be a number and host must be single quoted or a tuple.
+  * env is used to skip startup on a test env
   * Example:
     ```elixir
     config :orders_platform, OrdersPlatform.Mqtt,
       host: '127.0.0.1',
       port: 1883,
+      env: config_env(),
       client_id: "order_platform",
     ```
   
