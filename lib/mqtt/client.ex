@@ -11,7 +11,7 @@ defmodule PhxPlatformUtils.Mqtt.Client do
       :emqtt.start_link(
         clean_start: false,
         clientid: opts[:client_id],
-        host: String.to_atom(opts[:host]),
+        host: opts[:host],
         name: :emqtt,
         port: opts[:port]
       )
