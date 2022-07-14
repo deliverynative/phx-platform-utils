@@ -30,7 +30,7 @@ defmodule PhxPlatformUtils.Mqtt do
           end)
           |> List.to_tuple()
         else
-            val
+          String.to_atom(val)
         end
       else
         val
@@ -59,8 +59,9 @@ defmodule PhxPlatformUtils.Mqtt do
       @impl behaviour
       def start_link(opts \\ []) do
         config = config()
+
         if config[:env] == :test do
-          {:ok, :c.pid(0,250,0)}
+          {:ok, :c.pid(0, 250, 0)}
         else
           PhxPlatformUtils.Mqtt.Client.start_link(config)
         end
