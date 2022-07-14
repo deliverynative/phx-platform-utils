@@ -30,7 +30,7 @@ defmodule PhxPlatformUtils.Mqtt do
           end)
           |> List.to_tuple()
         else
-          String.to_atom(val)
+          String.to_charlist(val)
         end
       else
         val

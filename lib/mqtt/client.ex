@@ -7,6 +7,8 @@ defmodule PhxPlatformUtils.Mqtt.Client do
   end
 
   def init(opts) do
+    IO.inspect(opts)
+
     result =
       :emqtt.start_link(
         clean_start: false,
@@ -81,7 +83,9 @@ defmodule PhxPlatformUtils.Mqtt.Client do
 
   defp match_subscription_recursively([], []), do: true
 
-  defp match_subscription_recursively([message_part | message_topic_parts], [subscription_part | subscription_topic_parts]) do
+  defp match_subscription_recursively([message_part | message_topic_parts], [
+         subscription_part | subscription_topic_parts
+       ]) do
     case subscription_part do
       "+" ->
         true && match_subscription_recursively(message_topic_parts, subscription_topic_parts)
