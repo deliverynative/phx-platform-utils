@@ -14,25 +14,33 @@ defmodule PhxPlatformUtils.Mqtt do
 
   @callback init(config :: Keyword.t()) :: Keyword.t()
 
+  # def convert_string_ip_to_tuple(string_ip) do
+  #   string_ip
+  #   |> String.split(".")
+  #   |> Enum.map(fn num ->
+  #     {int, _} = Integer.parse(num)
+  #     int
+  #   end)
+  #   |> List.to_tuple()
+  # end
+
   def parse_config(app, module, opts \\ []) do
     @defaults
     |> Keyword.merge(Application.get_env(app, module, []))
     |> Keyword.merge(opts)
-    |> Keyword.update(:host, {127, 0, 0, 1}, fn val ->
-      if is_binary(val) do
-        if String.match?(val, ~r/^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])(\.(?!$)|$)){4}$/) do
-          String.split(val, ".")
-          |> Enum.map(fn num ->
-            {int, _} = Integer.parse(num)
-            int
-          end)
-          |> List.to_tuple()
+    |> Keyword.update(:host, {127, 0, 0, 1}, fn
+      ip_string_or_host when is_binary(ip_string_or_host) ->
+        if String.match?(ip_string_or_host, ~r/^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])(\.(?!$)|$)){4}$/) do
+          ip_string_or_host |> String.to_charlist()
         else
-          String.to_charlist(val)
+          {:ok, {:hostent, _, _, _, _, [ip_tuple | _]}} = :inet.gethostbyname(String.to_charlist(ip_string_or_host))
+          ip = ip_tuple |> Tuple.to_list() |> Enum.join(".")
+          IO.inspect(ip)
+          ip |> String.to_charlist()
         end
-      else
-        val
-      end
+
+      other_host_type ->
+        other_host_type
     end)
     |> Keyword.update(:port, 1883, fn val ->
       if is_binary(val) do

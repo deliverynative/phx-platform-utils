@@ -7,6 +7,8 @@ defmodule PhxPlatformUtils.Mqtt.Client do
   end
 
   def init(opts) do
+    IO.inspect(opts)
+
     result =
       :emqtt.start_link(
         clean_start: false,
