@@ -1,7 +1,5 @@
 defmodule PhxPlatformUtils.Mqtt do
   @defaults [
-    port: 1883,
-    host: '127.0.0.1',
     client_id: "dev",
     subscriptions: [],
     env: :dev

@@ -7,8 +7,6 @@ defmodule PhxPlatformUtils.Mqtt.Client do
   end
 
   def init(opts) do
-    IO.inspect(opts)
-
     result =
       :emqtt.start_link(
         clean_start: false,
@@ -38,7 +36,7 @@ defmodule PhxPlatformUtils.Mqtt.Client do
   end
 
   def handle_continue(:start_emqtt, st) do
-    case :emqtt.connect(st.pid) do
+    case :emqtt.ws_connect(st.pid) do
       {:ok, _props} ->
         Enum.each(st.topics, fn topic ->
           case :emqtt.subscribe(st.pid, {topic, 1}) do
@@ -88,13 +86,13 @@ defmodule PhxPlatformUtils.Mqtt.Client do
        ]) do
     case subscription_part do
       "+" ->
-        true && match_subscription_recursively(message_topic_parts, subscription_topic_parts)
+        match_subscription_recursively(message_topic_parts, subscription_topic_parts)
 
       "#" ->
-        true && length(subscription_topic_parts) == 0
+        length(subscription_topic_parts) == 0
 
       ^message_part ->
-        true && match_subscription_recursively(message_topic_parts, subscription_topic_parts)
+        match_subscription_recursively(message_topic_parts, subscription_topic_parts)
 
       _ ->
         false
