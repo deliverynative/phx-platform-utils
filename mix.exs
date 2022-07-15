@@ -21,8 +21,8 @@ defmodule PhxPlatformUtils.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:amqp, "~> 3.1"},
       {:ecto_sql, "~> 3.6"},
-      {:emqtt, github: "emqx/emqtt", tag: "1.4.4", system_env: [{"BUILD_WITHOUT_QUIC", "1"}]},
       {:faker, "~> 0.17"},
       {:inflex, "~> 2.0.0"},
       {:jason, "~> 1.2"},

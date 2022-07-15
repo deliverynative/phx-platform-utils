@@ -1,8 +1,11 @@
-defmodule PhxPlatformUtils.Mqtt do
+defmodule PhxPlatformUtils.Rabbit do
   @defaults [
-    client_id: "dev",
     subscriptions: [],
-    env: :dev
+    env: :dev,
+    port: 5672,
+    host: "localhost",
+    user: "guest",
+    pass: "guest",
   ]
 
   @callback config(Keyword.t()) :: Keyword.t()
@@ -14,35 +17,11 @@ defmodule PhxPlatformUtils.Mqtt do
 
   @callback init(config :: Keyword.t()) :: Keyword.t()
 
-  # def convert_string_ip_to_tuple(string_ip) do
-  #   string_ip
-  #   |> String.split(".")
-  #   |> Enum.map(fn num ->
-  #     {int, _} = Integer.parse(num)
-  #     int
-  #   end)
-  #   |> List.to_tuple()
-  # end
-
   def parse_config(app, module, opts \\ []) do
     @defaults
     |> Keyword.merge(Application.get_env(app, module, []))
     |> Keyword.merge(opts)
-    |> Keyword.update(:host, {127, 0, 0, 1}, fn
-      ip_string_or_host when is_binary(ip_string_or_host) ->
-        if String.match?(ip_string_or_host, ~r/^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])(\.(?!$)|$)){4}$/) do
-          ip_string_or_host |> String.to_charlist()
-        else
-          {:ok, {:hostent, _, _, _, _, [ip_tuple | _]}} = :inet.gethostbyname(String.to_charlist(ip_string_or_host))
-          ip = ip_tuple |> Tuple.to_list() |> Enum.join(".")
-          IO.inspect(ip)
-          ip |> String.to_charlist()
-        end
-
-      other_host_type ->
-        other_host_type
-    end)
-    |> Keyword.update(:port, 1883, fn val ->
+    |> Keyword.update(:port, 5762, fn val ->
       if is_binary(val) do
         {port, _} = Integer.parse(val)
         port
@@ -59,7 +38,7 @@ defmodule PhxPlatformUtils.Mqtt do
 
       @impl behaviour
       def config(opts \\ []) do
-        PhxPlatformUtils.Mqtt.parse_config(@otp_app, __MODULE__, opts)
+        PhxPlatformUtils.Rabbit.parse_config(@otp_app, __MODULE__, opts)
       end
 
       @impl behaviour
@@ -69,7 +48,7 @@ defmodule PhxPlatformUtils.Mqtt do
         if config[:env] == :test do
           {:ok, :c.pid(0, 250, 0)}
         else
-          PhxPlatformUtils.Mqtt.Client.start_link(config)
+          PhxPlatformUtils.Rabbit.Client.start_link(config)
         end
       end
 
@@ -79,11 +58,11 @@ defmodule PhxPlatformUtils.Mqtt do
       end
 
       def publish_sync(topic, payload \\ %{}) do
-        PhxPlatformUtils.Mqtt.Client.call({topic, payload})
+        PhxPlatformUtils.Rabbit.Client.call({topic, payload})
       end
 
       def publish_async(topic, payload \\ %{}) do
-        PhxPlatformUtils.Mqtt.Client.cast({topic, payload})
+        PhxPlatformUtils.Rabbit.Client.cast({topic, payload})
       end
 
       @spec child_spec(Keyword.t()) :: GenServer.child_spec()
