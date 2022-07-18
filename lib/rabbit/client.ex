@@ -58,7 +58,7 @@ defmodule PhxPlatformUtils.Rabbit.Client do
     end
   end
 
-  def subscribe(%Channel{} = channel, queue, fun, options \\ [always_ack?: true]) when is_function(fun, 2) do
+  def subscribe(%Channel{} = channel, queue, fun, options \\ [always_ack?: true]) do
     consumer_pid = spawn(fn -> do_start_consumer(channel, fun, options[:always_ack?]) end)
     Basic.consume(channel, queue, consumer_pid, options)
   end
