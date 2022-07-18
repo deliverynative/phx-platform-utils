@@ -7,105 +7,97 @@ defmodule PhxPlatformUtils.Rabbit.Client do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  @exchange    "amq.topic"
+  @exchange "amq.topic"
 
   def init(opts) do
-    with {:ok, conn} <- Connection.open([host: opts[:host], port: opts[:port], username: opts[:user], password: opts[:pass]]) do
+    try do
+      {:ok, conn} = Connection.open(host: opts[:host], port: opts[:port], username: opts[:user], password: opts[:pass])
       Logger.debug("RabbitMQ: connection opened")
-        with {:ok, chan} <- Channel.open(conn) do
-          Logger.debug("RabbitMQ: channel opened")
-          with {:ok} <- setup_queues(chan, opts[:subscriptions]) do
-            # Limit unacknowledged messages to 10
-            # not sure about this - from example
-            with :ok <- Basic.qos(chan, prefetch_count: 10) do
-              Logger.debug("RabbitMQ: start up finished, success!")
-              {:ok, chan}
-            else
-              {:error, error} ->
-                Logger.error("failed to limit unacknowledged messages to 10")
-                {:stop, :error, error}
-            end
-          else
-            {:error, errors} ->
-              Logger.error("failed to set up queues and subscriptions")
-              {:stop, :error, errors}
-          end
-        else
-          {:error, error} ->
-            Logger.error("failed to open channel")
-            {:stop, :error, error}
-        end
-    else
-      {:error, error} ->
-        Logger.error("failed to open ampq connection")
-        {:stop, :error, error}
+      {:ok, chan} = Channel.open(conn)
+      Logger.debug("RabbitMQ: channel opened")
+      {:ok} = setup_queues(chan, opts[:subscriptions])
+      :ok = Basic.qos(chan, prefetch_count: 10)
+      Logger.debug("RabbitMQ: initialization finished, success!")
+      {:ok, chan}
+    rescue
+      exception ->
+        Logger.error("RabbitMQ: initialization failed:")
+        Logger.error(exception)
+        {:error, exception}
     end
   end
 
-  defp setup_queues(chan, subscriptions) do
-    subscriptions
-      |> Enum.map(fn sub -> setup_queue(chan, {sub.topic, sub.handler}) end)
-      |> Enum.split_with(fn {:error, _} -> true; _ -> false end)
-      |> case do
-        {[], _} ->
-          {:ok}
-        {errors, _} ->
-           {:error, errors}
-        end
+  defp setup_queues(chan, consumers) do
+    queue_setup_results =
+      consumers
+      |> Enum.map(&setup_queue(chan, {&1.topic, &1.handler}))
+      |> Enum.filter(fn
+        {:error, _err} -> true
+        _ -> false
+      end)
+
+    with [{:error, exception} | _rest] <- queue_setup_results do
+      {:error, exception}
+    end
+
+    {:ok}
   end
 
-  defp setup_queue(chan, {topic, handler}) do
-    with {:ok, _} <- Queue.declare(chan, topic, durable: true) do
-      Logger.debug("RabbitMQ: queue #{topic} declared")
-      with :ok <- Queue.bind(chan, topic, @exchange, [routing_key: topic]) do
-        Logger.debug("RabbitMQ: queue #{topic} bound")
-        with {:ok, _} <- subscribe(chan, topic, handler) do
-          Logger.debug("RabbitMQ: subscription and consumer for #{topic} created")
-          {:ok}
-        else
-          error ->
-            Logger.error("Error subscribing to queue for topic: #{topic}", error)
-            {:error, error}
-        end
-      else
-        error ->
-          Logger.error("Error binding to queue for topic: #{topic}", error)
-          {:error, error}
-      end
-    else
-      error ->
-        Logger.error("Error creating queue for topic: #{topic}", error)
-        {:error, error}
+  defp setup_queue(chan, {queue, handler}) do
+    try do
+      {:ok, _} = Queue.declare(chan, queue, durable: true)
+      Logger.debug("RabbitMQ: queue #{queue} declared")
+      :ok = Queue.bind(chan, queue, @exchange, routing_key: queue)
+      Logger.debug("RabbitMQ: queue #{queue} bound")
+      {:ok, _} = subscribe(chan, queue, handler)
+      Logger.debug("RabbitMQ: subscription and consumer for #{queue} created")
+      {:ok}
+    rescue
+      exception ->
+        {:error, exception}
     end
   end
 
-  def subscribe(%Channel{} = channel, queue, fun, options \\ []) when is_function(fun, 2) do
-    consumer_pid = spawn(fn -> do_start_consumer(channel, fun) end)
+  def subscribe(%Channel{} = channel, queue, fun, options \\ [always_ack?: true]) when is_function(fun, 2) do
+    consumer_pid = spawn(fn -> do_start_consumer(channel, fun, options[:always_ack?]) end)
     Basic.consume(channel, queue, consumer_pid, options)
   end
 
-  defp do_start_consumer(channel, fun) do
+  defp do_start_consumer(channel, fun, always_ack?) do
     receive do
       {:basic_consume_ok, %{consumer_tag: consumer_tag}} ->
-        do_consume(channel, fun, consumer_tag)
+        do_consume(channel, fun, consumer_tag, always_ack?)
     end
   end
 
-  defp do_consume(channel, fun, consumer_tag) do
+  defp do_consume(channel, fun, consumer_tag, always_ack?) do
     receive do
-      {:basic_deliver, payload, %{delivery_tag: delivery_tag} = meta} ->
+      {:basic_deliver, payload, %{delivery_tag: delivery_tag, redelivered: redelivered?} = meta} ->
+        if always_ack? do
+          # Always ACK regardless of outcome
+          Basic.ack(channel, delivery_tag)
+        end
+
         try do
           decoded = Jason.decode!(payload)
           Logger.info("Messaged received on #{meta.routing_key}")
+
+          unless always_ack? do
+            Basic.ack(channel, delivery_tag)
+          end
+
           fun.(decoded, meta)
-          Basic.ack(channel, delivery_tag)
         rescue
           exception ->
-            Basic.reject(channel, delivery_tag, requeue: false)
-            reraise exception, __STACKTRACE__
+            Logger.error("Error consuming message on delivery_tag '#{delivery_tag}'")
+            Logger.error(exception)
+
+            unless always_ack? do
+              Basic.reject(channel, delivery_tag, requeue: not redelivered?)
+            end
         end
 
-        do_consume(channel, fun, consumer_tag)
+        do_consume(channel, fun, consumer_tag, always_ack?)
 
       {:basic_cancel, %{consumer_tag: ^consumer_tag}} ->
         exit(:basic_cancel)
