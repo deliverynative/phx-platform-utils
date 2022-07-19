@@ -6,6 +6,7 @@ defmodule PhxPlatformUtils.Rabbit do
     host: "localhost",
     user: "guest",
     pass: "guest",
+    use_ssl: false,
   ]
 
   @callback config(Keyword.t()) :: Keyword.t()
