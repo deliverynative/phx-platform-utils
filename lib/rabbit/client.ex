@@ -11,16 +11,7 @@ defmodule PhxPlatformUtils.Rabbit.Client do
 
   defp build_ssl_options() do
     ca_cert = :certifi.cacertfile()
-    # cacerts = :certifi.cacerts()
-    # Enum.each(cacerts, &IO.puts(&1))
-
-    [
-      ssl_options: [
-        cacertfile: ca_cert
-        # certfile: ca_cert,
-        # keyfile: ca_cert
-      ]
-    ]
+    [ssl_options: [cacertfile: ca_cert]]
   end
 
   def init(opts) do
@@ -41,7 +32,6 @@ defmodule PhxPlatformUtils.Rabbit.Client do
       {:ok, chan}
     rescue
       exception ->
-        IO.inspect(exception)
         Logger.error("RabbitMQ: initialization failed:")
         Logger.error(exception)
         {:error, exception}
