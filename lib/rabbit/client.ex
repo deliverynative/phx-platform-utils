@@ -11,18 +11,17 @@ defmodule PhxPlatformUtils.Rabbit.Client do
 
   defp build_ssl_options() do
     ca_cert = :certifi.cacertfile()
-    [ssl_options: [cacertfile: ca_cert]]
+    [ssl_options: [cacertfile: ca_cert, verify: :verify_none]]
   end
 
   def init(opts) do
     ssl_options = if opts[:use_ssl], do: build_ssl_options(), else: []
-    scheme = if opts[:use_ssl], do: "amqps://", else: "amqp://"
-    uri = "#{scheme}#{opts[:user]}:#{opts[:pass]}@#{opts[:host]}"
+    uri_options = [username: opts[:user], password: opts[:pass], host: opts[:host], port: opts[:port]]
 
-    options = Keyword.merge([port: opts[:port]], ssl_options)
+    options = Keyword.merge(uri_options, ssl_options)
 
     try do
-      {:ok, conn} = Connection.open(uri, options)
+      {:ok, conn} = Connection.open(options)
       Logger.debug("RabbitMQ: connection opened")
       {:ok, chan} = Channel.open(conn)
       Logger.debug("RabbitMQ: channel opened")
