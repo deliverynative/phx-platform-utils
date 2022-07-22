@@ -1,6 +1,9 @@
 
   describe "<%= schema.plural %>" do
-    @invalid_attrs <%= Mix.Dn.to_text for {key, _} <- schema.params.create, into: %{}, do: {key, nil} %>
+    @invalid_attrs %{
+      <%= for {key, _} <- schema.params.create do %><%= key %>: nil,<% end %>
+      <%= for {key, _} <- schema.params.relations do %><%= key %>: nil,<% end %>
+    }
 
     test "list_<%= schema.plural %>/0 returns all <%= schema.plural %>" do
       <%= schema.plural %> = Factory.create_many!(%{}, 3)
@@ -13,10 +16,16 @@
     end
 
     test "create_<%= schema.singular %>/1 with valid data creates a <%= schema.singular %>" do
-      valid_attrs = <%= Mix.Dn.to_text schema.params.create %>
+      <%= for {_, {_, create, _, _}} <- context.factory_relations do %><%= create %>
+      <% end %>
+      valid_attrs = %{<%= for {key, val} <- schema.params.create do %>
+        <%= key %>: <%= Mix.Dn.to_text(val) %>,<% end %><%= for {key, val} <- schema.params.relations do %>
+        <%= key %>: <%= val %>,<% end %>
+      }
 
       assert {:ok, %Model{} = <%= schema.singular %>} = Service.create_<%= schema.singular %>(valid_attrs)<%= for {field, value} <- schema.params.create do %>
-      assert <%= schema.singular %>.<%= field %> == <%= Mix.Dn.Schema.value(schema, field, value) %><% end %>
+      assert <%= schema.singular %>.<%= field %> == <%= Mix.Dn.Schema.value(schema, field, value) %><% end %><%= for {field, value} <- schema.params.relations do %>
+      assert <%= schema.singular %>.<%= field %> == <%= value %><% end %>
     end
 
     test "create_<%= schema.singular %>/1 with invalid data returns error changeset" do

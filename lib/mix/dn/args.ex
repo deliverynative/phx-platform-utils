@@ -7,25 +7,28 @@ defmodule Mix.Dn.Args do
   Becomes:   {["my_param:decimal", "my_param:belongs_to:other_table", "donkey_name:string"], [:donkey_name], []}
   """
   def extract_attribute_flags(cli_attributes) do
-    {attributes, uniques, redacts} =
-      Enum.reduce(cli_attributes, {[], [], []}, fn attribute, {attributes, uniques, redacts} ->
+    {attributes, uniques, redacts, requires} =
+      Enum.reduce(cli_attributes, {[], [], [], []}, fn attribute, {attributes, uniques, redacts, requires} ->
         [attribute_name | types_and_flags] = String.split(attribute, ":")
         attribute_name = String.to_atom(attribute_name)
-        split_flags(Enum.reverse(types_and_flags), attribute_name, attributes, uniques, redacts)
+        split_flags(Enum.reverse(types_and_flags), attribute_name, attributes, uniques, redacts, requires)
       end)
 
-    {Enum.reverse(attributes), uniques, redacts}
+    {Enum.reverse(attributes), uniques, redacts, requires}
   end
 
   # Recursively splits flags to strip out :unique and :redact types
-  defp split_flags(["unique" | rest], name, attributes, uniques, redacts),
-    do: split_flags(rest, name, attributes, [name | uniques], redacts)
+  defp split_flags(["unique" | rest], name, attributes, uniques, redacts, requires),
+    do: split_flags(rest, name, attributes, [name | uniques], redacts, requires)
 
-  defp split_flags(["redact" | rest], name, attributes, uniques, redacts),
-    do: split_flags(rest, name, attributes, uniques, [name | redacts])
+  defp split_flags(["redact" | rest], name, attributes, uniques, redacts, requires),
+    do: split_flags(rest, name, attributes, uniques, [name | redacts], requires)
 
-  defp split_flags(rest, name, attributes, uniques, redacts),
-    do: {[Enum.join([name | Enum.reverse(rest)], ":") | attributes], uniques, redacts}
+  defp split_flags(["required" | rest], name, attributes, uniques, redacts, requires),
+    do: split_flags(rest, name, attributes, uniques, redacts, [{name, :true} | requires])
+
+  defp split_flags(rest, name, attributes, uniques, redacts, requires),
+    do: {[Enum.join([name | Enum.reverse(rest)], ":") | attributes], uniques, redacts, requires}
 
   @doc """
   Rejects relational attributes from list

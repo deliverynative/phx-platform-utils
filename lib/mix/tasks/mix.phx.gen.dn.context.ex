@@ -53,7 +53,7 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
 
   use Mix.Task
 
-  alias Mix.Dn.{Context, Schema}
+  alias Mix.Dn.{Context, Schema, Rebuild}
   alias Mix.Tasks.Phx.Gen.Dn.Schema, as: GenDnSchema
 
   @switches [
@@ -64,10 +64,12 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
     context: :boolean,
     context_app: :string,
     merge_with_existing_context: :boolean,
-    prefix: :string
+    prefix: :string,
+    rebuild: :boolean,
+    soft_delete: :boolean
   ]
 
-  @default_opts [schema: true, context: true]
+  @default_opts [schema: true, context: true, rebuild: false, soft_delete: false]
 
   @doc false
   def run(args) do
@@ -81,8 +83,8 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
     binding = [context: context, schema: schema]
     paths = Mix.Dn.generator_paths()
 
-    prompt_for_conflicts(context)
-    prompt_for_code_injection(context)
+    if !context.opts[:rebuild], do: prompt_for_conflicts(context)
+    if !context.opts[:rebuild], do: prompt_for_code_injection(context)
 
     context
     |> copy_new_files(paths, binding)
@@ -96,10 +98,15 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
   end
 
   @doc false
+  # TODO: look into allowing name change
+  # TODO: look into how to handle redacted flag for rebuild
+  # TODO: add validate_length to constraint parsing for tests + factory
+  # TODO: rework required attr to not null attr, go back to validate req. all
   def build(args, help \\ __MODULE__) do
     {opts, parsed, _} = parse_opts(args)
-    [context_name, schema_name, plural | schema_args] = validate_args!(parsed, help)
+    [context_name, schema_name, plural | potential_schema_args] = validate_args!(parsed, help)
     schema_module = inspect(Module.concat(context_name, schema_name))
+    schema_args = if opts[:rebuild], do: Rebuild.parse_updated_schema(schema_module, opts), else: potential_schema_args
     schema = GenDnSchema.build([schema_module, plural | schema_args], opts, help)
     context = Context.new(context_name, schema, opts)
     {context, schema}
@@ -134,6 +141,7 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
   @doc false
   def copy_new_files(%Context{schema: schema} = context, paths, binding) do
     if schema.generate?, do: GenDnSchema.copy_new_files(schema, paths, binding)
+    if context.opts[:rebuild], do: remove_old_files(context)
     inject_schema_access(context, paths, binding)
     inject_tests(context, paths, binding)
 
@@ -155,6 +163,18 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
     end
   end
 
+  defp remove_old_files(context) do
+    if File.exists?(context.file) do
+      File.rm(context.file)
+    end
+    if File.exists?(context.test_file) do
+      File.rm(context.test_file)
+    end
+    if File.exists?(context.factory_file) do
+      File.rm(context.factory_file)
+    end
+  end
+
   defp inject_schema_access(%Context{file: file} = context, paths, binding) do
     ensure_context_file_exists(context, paths, binding)
 
@@ -167,7 +187,7 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
   end
 
   defp schema_access_template(%Context{schema: schema}) do
-    if schema.generate? do
+    if schema.generate? || schema.opts[:rebuild] do
       "schema_access.ex"
     else
       "access_no_schema.ex"
