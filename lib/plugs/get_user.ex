@@ -1,5 +1,6 @@
 defmodule PhxPlatformUtils.Plugs.GetUser do
   import Plug.Conn
+  require Jason
 
   def init(opts), do: opts
 
