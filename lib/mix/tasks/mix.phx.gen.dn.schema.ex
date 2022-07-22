@@ -46,9 +46,18 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Schema do
       |> Keyword.merge(schema_opts)
       |> put_context_app(schema_opts[:context_app])
 
-    schema = Schema.new(schema_name, plural, attrs, opts)
-
-    schema
+    case opts[:rebuild] do
+      true ->
+        basename = Phoenix.Naming.underscore(schema_name)
+        ctx_app = opts[:context_app] || Mix.Phoenix.context_app()
+        existing_model_path =  Mix.Dn.context_lib_path(ctx_app, basename <> "/model.ex")
+        [model, _] = Code.compile_file(existing_model_path)
+        IO.inspect(model)
+        model
+      false ->
+        schema = Schema.new(schema_name, plural, attrs, opts)
+        schema
+    end
   end
 
   defp put_context_app(opts, nil), do: opts

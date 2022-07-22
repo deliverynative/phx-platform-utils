@@ -64,10 +64,11 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
     context: :boolean,
     context_app: :string,
     merge_with_existing_context: :boolean,
-    prefix: :string
+    prefix: :string,
+    rebuild: :boolean
   ]
 
-  @default_opts [schema: true, context: true]
+  @default_opts [schema: true, context: true, rebuild: false]
 
   @doc false
   def run(args) do
@@ -77,16 +78,20 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
       )
     end
 
-    {context, schema} = build(args)
-    binding = [context: context, schema: schema]
-    paths = Mix.Dn.generator_paths()
+    case build(args) do
+      {context, schema} ->
+        binding = [context: context, schema: schema]
+        paths = Mix.Dn.generator_paths()
 
-    prompt_for_conflicts(context)
-    prompt_for_code_injection(context)
+        prompt_for_conflicts(context)
+        prompt_for_code_injection(context)
 
-    context
-    |> copy_new_files(paths, binding)
-    |> print_shell_instructions()
+        context
+        |> copy_new_files(paths, binding)
+        |> print_shell_instructions()
+      {:ok} ->
+        IO.puts("Done")
+    end
   end
 
   defp prompt_for_conflicts(context) do
@@ -98,11 +103,41 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
   @doc false
   def build(args, help \\ __MODULE__) do
     {opts, parsed, _} = parse_opts(args)
-    [context_name, schema_name, plural | schema_args] = validate_args!(parsed, help)
-    schema_module = inspect(Module.concat(context_name, schema_name))
-    schema = GenDnSchema.build([schema_module, plural | schema_args], opts, help)
-    context = Context.new(context_name, schema, opts)
-    {context, schema}
+    case opts[:rebuild] do
+      false ->
+        [context_name, schema_name, plural | schema_args] = validate_args!(parsed, help)
+        schema_module = inspect(Module.concat(context_name, schema_name))
+        schema = GenDnSchema.build([schema_module, plural | schema_args], opts, help)
+        context = Context.new(context_name, schema, opts)
+        {context, schema}
+      true ->
+        [context_name, schema_name, plural | schema_args] = validate_args!(parsed, help)
+        schema_module = inspect(Module.concat(context_name, schema_name))
+        # schema = GenDnSchema.build([schema_module, plural | schema_args], opts, help)
+        # IO.inspect(opts)
+        # IO.inspect(parsed)
+        # IO.inspect(context_name)
+        # IO.inspect(schema_name)
+        # IO.inspect(plural)
+        # IO.inspect(schema_args)
+        IO.inspect(schema_module)
+        basename = Phoenix.Naming.underscore(schema_module)
+        ctx_app = opts[:context_app] || Mix.Phoenix.context_app()
+        existing_model_path =  Mix.Dn.context_lib_path(ctx_app, basename <> "/model.ex")
+        {:ok, bin} = File.read(existing_model_path)
+        String.split(bin, "\n")
+          |> Enum.reduce([], fn (potential_field, fields) ->
+            trimmed = String.trim_leading(potential_field)
+            cond do
+              String.starts_with?(trimmed, ["field", "belongs_to", "has_one", "has_many", "many_to_many"]) ->
+                [trimmed | fields]
+              true ->
+                fields
+            end
+          end)
+        |> IO.inspect()
+        {:ok}
+    end
   end
 
   defp parse_opts(args) do
