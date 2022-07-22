@@ -23,8 +23,10 @@ defmodule Mix.Dn.Schema do
             plural: nil,
             atomic_singular: nil,
             singular: nil,
+            soft_delete: false,
             uniques: [],
             redacts: [],
+            requires: [],
             assocs: [],
             types: [],
             indexes: [],
@@ -59,13 +61,14 @@ defmodule Mix.Dn.Schema do
     repo = opts[:repo] || Module.concat([base, "Repo"])
     file = Mix.Dn.context_lib_path(ctx_app, basename <> "/model.ex")
     table = opts[:table] || schema_plural
-    {extracted_attributes, uniques, redacts} = Args.extract_attribute_flags(cli_attributes)
+    {extracted_attributes, uniques, redacts, requires} = Args.extract_attribute_flags(cli_attributes)
     {associations, attributes} = Args.partition_associations_from_attributes(module, Args.parse_attributes(extracted_attributes))
     types = Types.types(attributes)
     web_namespace = opts[:web] && Phoenix.Naming.camelize(opts[:web])
     web_path = web_namespace && Phoenix.Naming.underscore(web_namespace)
     embedded? = Keyword.get(opts, :embedded, false)
     generate? = Keyword.get(opts, :schema, true)
+    soft_delete? = Keyword.get(opts, :soft_delete, false)
 
     faker_attributes = Enum.map(attributes, &Types.determine_faker_generator_for_type(&1))
 
@@ -95,6 +98,7 @@ defmodule Mix.Dn.Schema do
     collection = if schema_plural == singular_entity_name, do: singular_entity_name <> "_collection", else: schema_plural
     string_attribute = Args.string_attribute(types)
     create_params = params(attributes, :create)
+    relations_params = params_with_relations(associations, requires)
 
     default_params_key =
       case Enum.at(create_params, 0) do
@@ -126,6 +130,7 @@ defmodule Mix.Dn.Schema do
       defaults: schema_defaults(attributes),
       uniques: uniques,
       redacts: redacts,
+      requires: requires,
       indexes: indexes(table, associations_requiring_indexes, uniques),
       human_singular: Phoenix.Naming.humanize(singular_entity_name),
       human_plural: Phoenix.Naming.humanize(schema_plural),
@@ -135,7 +140,8 @@ defmodule Mix.Dn.Schema do
       params: %{
         create: create_params,
         update: params(attributes, :update),
-        default_key: string_attribute || default_params_key
+        default_key: string_attribute || default_params_key,
+        relations: relations_params
       },
       web_namespace: web_namespace,
       web_path: web_path,
@@ -146,7 +152,8 @@ defmodule Mix.Dn.Schema do
       migration_module: migration_module(),
       fixture_unique_functions: fixture_unique_functions,
       fixture_params: fixture_params(attributes, fixture_unique_functions),
-      prefix: opts[:prefix]
+      prefix: opts[:prefix],
+      soft_delete: soft_delete?
     }
   end
 
@@ -356,6 +363,17 @@ defmodule Mix.Dn.Schema do
 
         :error ->
           {attr, inspect(Types.type_to_default(attr, type, :create))}
+      end
+    end)
+  end
+
+  defp params_with_relations(assoc, reqs) do
+    Enum.reduce(assoc, %{}, fn ({name, _, _, parent, _}, params) ->
+      case Enum.member?(reqs, {name, true}) do
+        true ->
+          Map.put(params, name, "#{String.downcase(parent)}.id")
+        false ->
+          params
       end
     end)
   end

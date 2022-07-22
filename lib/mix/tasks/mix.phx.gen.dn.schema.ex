@@ -9,7 +9,8 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Schema do
     table: :string,
     web: :string,
     context_app: :string,
-    prefix: :string
+    prefix: :string,
+    soft_delete: :boolean
   ]
 
   @doc false
@@ -46,9 +47,7 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Schema do
       |> Keyword.merge(schema_opts)
       |> put_context_app(schema_opts[:context_app])
 
-    schema = Schema.new(schema_name, plural, attrs, opts)
-
-    schema
+      Schema.new(schema_name, plural, attrs, opts)
   end
 
   defp put_context_app(opts, nil), do: opts
@@ -64,22 +63,30 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Schema do
 
   @doc false
   def copy_new_files(%Schema{context_app: ctx_app} = schema, paths, binding) do
-    files = files_to_be_generated(schema)
+    new_migration_path =
+      Mix.Dn.context_app_path(
+        ctx_app,
+        "priv/repo/migrations/#{timestamp()}_create_#{schema.table}.exs"
+      )
+
+    if schema.opts[:rebuild], do: find_and_delete_old_migration_file(ctx_app, schema.table)
+    files = if schema.opts[:rebuild], do: [{:eex, "migration.exs", new_migration_path}],  else: if schema.migration?, do: [{:eex, "model.ex", schema.file}, {:eex, "migration.exs", new_migration_path}], else: [{:eex, "model.ex", schema.file}]
     Mix.Dn.copy_from(paths, "priv/templates/phx.gen.dn.schema", binding, files)
-
-    if schema.migration? do
-      migration_path =
-        Mix.Dn.context_app_path(
-          ctx_app,
-          "priv/repo/migrations/#{timestamp()}_create_#{schema.table}.exs"
-        )
-
-      Mix.Dn.copy_from(paths, "priv/templates/phx.gen.dn.schema", binding, [
-        {:eex, "migration.exs", migration_path}
-      ])
-    end
-
     schema
+  end
+
+  defp find_and_delete_old_migration_file(ctx_app, suffix) do
+    {:ok, all_migration_files} = File.ls(Mix.Dn.context_app_path(ctx_app,"priv/repo/migrations/"))
+    [migration_to_delete | rest] = Enum.filter(all_migration_files, fn path ->
+      String.ends_with?(path, "_create_#{suffix}.exs")
+    end)
+    if rest != [] do
+      # TODO: handle this better also handle no match
+      IO.inspect(rest)
+      IO.puts("should only match one file, add throw to handle better")
+    end
+    # TODO: handle error here
+    File.rm("priv/repo/migrations/#{migration_to_delete}")
   end
 
   @doc false
