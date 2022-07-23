@@ -41,23 +41,14 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Schema do
     {schema_opts, parsed, _} = OptionParser.parse(args, switches: @switches)
     [schema_name, plural | attrs] = validate_args!(parsed, help)
 
+    IO.inspect(attrs)
     opts =
       parent_opts
       |> Keyword.merge(schema_opts)
       |> put_context_app(schema_opts[:context_app])
 
-    case opts[:rebuild] do
-      true ->
-        basename = Phoenix.Naming.underscore(schema_name)
-        ctx_app = opts[:context_app] || Mix.Phoenix.context_app()
-        existing_model_path =  Mix.Dn.context_lib_path(ctx_app, basename <> "/model.ex")
-        [model, _] = Code.compile_file(existing_model_path)
-        IO.inspect(model)
-        model
-      false ->
-        schema = Schema.new(schema_name, plural, attrs, opts)
-        schema
-    end
+
+      Schema.new(schema_name, plural, attrs, opts)
   end
 
   defp put_context_app(opts, nil), do: opts
@@ -73,22 +64,31 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Schema do
 
   @doc false
   def copy_new_files(%Schema{context_app: ctx_app} = schema, paths, binding) do
-    files = files_to_be_generated(schema)
+    new_migration_path =
+      Mix.Dn.context_app_path(
+        ctx_app,
+        "priv/repo/migrations/#{timestamp()}_create_#{schema.table}.exs"
+      )
+
+    migration_to_delete_result = find_and_delete_old_migration_file(ctx_app, schema.table)
+    IO.inspect(migration_to_delete_result)
+    files = if schema.opts[:rebuild], do: [{:eex, "migration.exs", new_migration_path}],  else: if schema.migration?, do: [{:eex, "model.ex", schema.file}, {:eex, "migration.exs", new_migration_path}], else: [{:eex, "model.ex", schema.file}]
     Mix.Dn.copy_from(paths, "priv/templates/phx.gen.dn.schema", binding, files)
-
-    if schema.migration? do
-      migration_path =
-        Mix.Dn.context_app_path(
-          ctx_app,
-          "priv/repo/migrations/#{timestamp()}_create_#{schema.table}.exs"
-        )
-
-      Mix.Dn.copy_from(paths, "priv/templates/phx.gen.dn.schema", binding, [
-        {:eex, "migration.exs", migration_path}
-      ])
-    end
-
     schema
+  end
+
+  defp find_and_delete_old_migration_file(ctx_app, suffix) do
+    {:ok, all_migration_files} = File.ls(Mix.Dn.context_app_path(ctx_app,"priv/repo/migrations/"))
+    [migration_to_delete | rest] = Enum.filter(all_migration_files, fn path ->
+      String.ends_with?(path, "_create_#{suffix}.exs")
+    end)
+    if rest != [] do
+      # TODO: handle this better also handle no match
+      IO.inspect(rest)
+      IO.puts("should only match one file, add throw to handle better")
+    end
+    # TODO: handle error here
+    File.rm("priv/repo/migrations/#{migration_to_delete}")
   end
 
   @doc false

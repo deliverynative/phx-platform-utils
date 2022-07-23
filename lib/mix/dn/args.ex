@@ -118,6 +118,8 @@ defmodule Mix.Dn.Args do
   end
 
   def partition_associations_from_attributes(schema_module, attributes_with_associations) do
+    IO.inspect(schema_module)
+    IO.inspect(attributes_with_associations)
     {association_fields, attribute_fields} =
       Enum.split_with(attributes_with_associations, fn
         {_, {:belongs_to, _}} ->

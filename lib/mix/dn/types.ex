@@ -36,6 +36,12 @@ defmodule Mix.Dn.Types do
       {col, :utc_datetime_usec} ->
         {col, "Faker.DateTime.backward(10)"}
 
+      {col, {:array, :string}} ->
+        {col, "Faker.Util.list(3, &(to_string(&1)))"}
+
+      {col, {:array, :integer}} ->
+        {col, "Faker.Util.list(3, &(&1))"}
+
       {col, _} ->
         {col, nil}
     end

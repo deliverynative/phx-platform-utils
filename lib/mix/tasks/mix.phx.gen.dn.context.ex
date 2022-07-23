@@ -78,20 +78,16 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
       )
     end
 
-    case build(args) do
-      {context, schema} ->
-        binding = [context: context, schema: schema]
-        paths = Mix.Dn.generator_paths()
+    {context, schema} = build(args)
+    binding = [context: context, schema: schema]
+    paths = Mix.Dn.generator_paths()
 
-        prompt_for_conflicts(context)
-        prompt_for_code_injection(context)
+    if !context.opts[:rebuild], do: prompt_for_conflicts(context)
+    if !context.opts[:rebuild], do: prompt_for_code_injection(context)
 
-        context
-        |> copy_new_files(paths, binding)
-        |> print_shell_instructions()
-      {:ok} ->
-        IO.puts("Done")
-    end
+    context
+    |> copy_new_files(paths, binding)
+    |> print_shell_instructions()
   end
 
   defp prompt_for_conflicts(context) do
@@ -101,43 +97,81 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
   end
 
   @doc false
+  # TODO: parse changeset for rebuild for constraints
+  # TODO: look into better handling relations in the factory, will at least need to add cases and nil returns for the other relation types
+  # TODO: look into allowing name change
+  # TODO: look into other potential special ecto types we might be using, like uuid
+  # TODO: soft delete column not present - now included on all, should be conditional on existing for rebuild and flag for creating new
+  # TODO: old migration not deleted - sort of working now - keep an eye on it
   def build(args, help \\ __MODULE__) do
     {opts, parsed, _} = parse_opts(args)
-    case opts[:rebuild] do
-      false ->
-        [context_name, schema_name, plural | schema_args] = validate_args!(parsed, help)
-        schema_module = inspect(Module.concat(context_name, schema_name))
-        schema = GenDnSchema.build([schema_module, plural | schema_args], opts, help)
-        context = Context.new(context_name, schema, opts)
-        {context, schema}
-      true ->
-        [context_name, schema_name, plural | schema_args] = validate_args!(parsed, help)
-        schema_module = inspect(Module.concat(context_name, schema_name))
-        # schema = GenDnSchema.build([schema_module, plural | schema_args], opts, help)
-        # IO.inspect(opts)
-        # IO.inspect(parsed)
-        # IO.inspect(context_name)
-        # IO.inspect(schema_name)
-        # IO.inspect(plural)
-        # IO.inspect(schema_args)
-        IO.inspect(schema_module)
-        basename = Phoenix.Naming.underscore(schema_module)
-        ctx_app = opts[:context_app] || Mix.Phoenix.context_app()
-        existing_model_path =  Mix.Dn.context_lib_path(ctx_app, basename <> "/model.ex")
-        {:ok, bin} = File.read(existing_model_path)
-        String.split(bin, "\n")
-          |> Enum.reduce([], fn (potential_field, fields) ->
-            trimmed = String.trim_leading(potential_field)
-            cond do
-              String.starts_with?(trimmed, ["field", "belongs_to", "has_one", "has_many", "many_to_many"]) ->
-                [trimmed | fields]
-              true ->
-                fields
-            end
-          end)
-        |> IO.inspect()
-        {:ok}
-    end
+    [context_name, schema_name, plural | potential_schema_args] = validate_args!(parsed, help)
+    schema_module = inspect(Module.concat(context_name, schema_name))
+    schema_args = if opts[:rebuild], do: parse_updated_schema(schema_module, opts), else: potential_schema_args
+    schema = GenDnSchema.build([schema_module, plural | schema_args], opts, help)
+    context = Context.new(context_name, schema, opts)
+    {context, schema}
+  end
+
+  defp parse_updated_schema(schema_module, opts) do
+    # get existing model
+    # TODO: will need to parse change set to set required fields and other constraints and for tests
+    basename = Phoenix.Naming.underscore(schema_module)
+    ctx_app = opts[:context_app] || Mix.Phoenix.context_app()
+    Mix.Dn.context_lib_path(ctx_app, basename <> "/model.ex")
+    |> File.read()
+    |>clean_model_file()
+    |>parse_fields()
+  end
+
+  defp parse_fields(field_list) do
+    Enum.reduce(field_list, [], fn (field, parsed_list) ->
+      # TODO: may need to add additional logic for other custom ecto types, similar to uuid
+      cond do
+        String.starts_with?(field, "field") ->
+          # parse "field's"
+          [name, type] = Regex.run(~r/^field :(\S+), (.+)$/, field, [capture: :all_but_first])
+          cond  do
+            String.ends_with?(type, "Ecto.UUID") ->
+              ["#{name}:uuid" | parsed_list]
+            String.starts_with?(type, ":") ->
+              ["#{name}#{type}" | parsed_list]
+            String.starts_with?(type, "{") ->
+              ["#{name}#{String.replace(type, [",", " ", "{", "}"], "")}" | parsed_list]
+            true ->
+              # TODO: handle no type match
+              IO.puts("Error, no type match for#{type}")
+          end
+        String.starts_with?(field, "belongs_to") ->
+          # parse belongs_to relation
+          IO.inspect(field)
+          # TODO: better account for pluralization of owner
+          case String.split(field, ",") do
+            [relation, _, extra] ->
+              [key] = Regex.run(~r/^ foreign_key: :(\S+)$/, extra, [capture: :all_but_first])
+              ["#{key}:#{String.replace(relation, " ", "")}s" | parsed_list]
+            [relation, _] ->
+              ["#{String.replace(relation, " ", "")}" | parsed_list]
+          end
+        true ->
+          IO.inspect("what are we doing here? #{field}")
+          # TODO: and cases for other relation types, enum, and a catch case
+      end
+    end)
+  end
+
+  defp clean_model_file({_, file_as_string}) do
+    # TODO: maybe some extra cleaning here can help simplify the downstream parsing
+    String.split(file_as_string, "\n")
+      |> Enum.reduce([], fn (potential_field, fields) ->
+        trimmed = String.trim_leading(potential_field)
+        cond do
+          String.starts_with?(trimmed, ["field", "belongs_to", "has_one", "has_many", "many_to_many"]) ->
+            [trimmed | fields]
+          true ->
+            fields
+        end
+      end)
   end
 
   defp parse_opts(args) do
@@ -169,6 +203,7 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
   @doc false
   def copy_new_files(%Context{schema: schema} = context, paths, binding) do
     if schema.generate?, do: GenDnSchema.copy_new_files(schema, paths, binding)
+    if context.opts[:rebuild], do: remove_old_files(context)
     inject_schema_access(context, paths, binding)
     inject_tests(context, paths, binding)
 
@@ -190,6 +225,18 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
     end
   end
 
+  defp remove_old_files(context) do
+    if File.exists?(context.file) do
+      File.rm(context.file)
+    end
+    if File.exists?(context.test_file) do
+      File.rm(context.test_file)
+    end
+    if File.exists?(context.factory_file) do
+      File.rm(context.factory_file)
+    end
+  end
+
   defp inject_schema_access(%Context{file: file} = context, paths, binding) do
     ensure_context_file_exists(context, paths, binding)
 
@@ -202,7 +249,7 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
   end
 
   defp schema_access_template(%Context{schema: schema}) do
-    if schema.generate? do
+    if schema.generate? || schema.opts[:rebuild] do
       "schema_access.ex"
     else
       "access_no_schema.ex"
