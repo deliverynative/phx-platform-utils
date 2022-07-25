@@ -23,6 +23,7 @@ defmodule PhxPlatformUtils.MixProject do
     [
       {:amqp, "~> 3.1"},
       {:certifi, "~> 2.8"},
+      {:ecto_soft_delete, "~> 2.0"},
       {:ecto_sql, "~> 3.6"},
       {:faker, "~> 0.17"},
       {:inflex, "~> 2.0.0"},

@@ -9,7 +9,8 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Schema do
     table: :string,
     web: :string,
     context_app: :string,
-    prefix: :string
+    prefix: :string,
+    soft_delete: :boolean
   ]
 
   @doc false
@@ -26,8 +27,7 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Schema do
 
     schema
     |> copy_new_files(paths, schema: schema)
-
-    # |> print_shell_instructions()
+    |> print_shell_instructions()
   end
 
   defp prompt_for_conflicts(schema) do
@@ -41,12 +41,10 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Schema do
     {schema_opts, parsed, _} = OptionParser.parse(args, switches: @switches)
     [schema_name, plural | attrs] = validate_args!(parsed, help)
 
-    IO.inspect(attrs)
     opts =
       parent_opts
       |> Keyword.merge(schema_opts)
       |> put_context_app(schema_opts[:context_app])
-
 
       Schema.new(schema_name, plural, attrs, opts)
   end
@@ -71,7 +69,6 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Schema do
       )
 
     migration_to_delete_result = find_and_delete_old_migration_file(ctx_app, schema.table)
-    IO.inspect(migration_to_delete_result)
     files = if schema.opts[:rebuild], do: [{:eex, "migration.exs", new_migration_path}],  else: if schema.migration?, do: [{:eex, "model.ex", schema.file}, {:eex, "migration.exs", new_migration_path}], else: [{:eex, "model.ex", schema.file}]
     Mix.Dn.copy_from(paths, "priv/templates/phx.gen.dn.schema", binding, files)
     schema
