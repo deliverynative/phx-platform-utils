@@ -41,7 +41,7 @@ defmodule Mix.Dn.Rebuild do
           ["--soft-delete" | parsed_list]
         true ->
           IO.inspect("what are we doing here? #{field}")
-          # TODO: and cases for other relation types, enum, and a catch case
+          # TODO: and cases for other relation types, enum, and a catch case then update factory template for other relations
       end
     end)
   end

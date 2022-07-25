@@ -68,7 +68,7 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Schema do
         "priv/repo/migrations/#{timestamp()}_create_#{schema.table}.exs"
       )
 
-    migration_to_delete_result = find_and_delete_old_migration_file(ctx_app, schema.table)
+    find_and_delete_old_migration_file(ctx_app, schema.table)
     files = if schema.opts[:rebuild], do: [{:eex, "migration.exs", new_migration_path}],  else: if schema.migration?, do: [{:eex, "model.ex", schema.file}, {:eex, "migration.exs", new_migration_path}], else: [{:eex, "model.ex", schema.file}]
     Mix.Dn.copy_from(paths, "priv/templates/phx.gen.dn.schema", binding, files)
     schema

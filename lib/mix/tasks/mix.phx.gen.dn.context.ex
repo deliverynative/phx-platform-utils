@@ -99,9 +99,7 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
 
   @doc false
   # TODO: look into allowing name change
-  # TODO: old migration not deleted - sort of working now - keep an eye on it, probably just related to my git stash's from testing
   # TODO: look into how to handle redacted flag for rebuild
-  # TODO: copy changes in orders factory and tests to templates - to handle relations and not null better.
   def build(args, help \\ __MODULE__) do
     {opts, parsed, _} = parse_opts(args)
     [context_name, schema_name, plural | potential_schema_args] = validate_args!(parsed, help)
