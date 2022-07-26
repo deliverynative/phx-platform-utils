@@ -2,7 +2,13 @@ defmodule PhxPlatformUtils.Utils.Token do
   alias PhxPlatformUtils.Errors
 
   def claims(conn) do
-    conn.assigns[:user] || %{}
+    base = conn.assigns[:user] || %{}
+
+    base
+    |> Map.merge(%{
+      email: Map.get(base, :"https://deliverynative.com/email")
+    })
+    |> Map.delete(:"https://deliverynative.com/email")
   end
 
   def get_matching_permissions(conn, allowed_permissions) do
