@@ -65,7 +65,9 @@ defmodule Mix.Dn.Context do
           Keyword.put(factory_assoc, name,
             {"alias #{mod_path}.Factory, as: #{mod}Factory",
              "#{String.downcase(mod)} = #{mod}Factory.create!()",
-             "#{Atom.to_string(name)}: #{String.downcase(mod)}.id,"})
+             "#{Atom.to_string(name)}: #{String.downcase(mod)}.id,",
+             "#{String.downcase(mod)}.id"
+            })
         false ->
           factory_assoc
       end

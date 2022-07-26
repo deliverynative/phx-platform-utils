@@ -77,6 +77,12 @@ defmodule Mix.Dn.Types do
 
   def type_to_default(key, t, :create) do
     case t do
+      {:array, :string} ->
+        ["test"]
+
+      {:array, :integer} ->
+        [1, 2, 3]
+
       {:array, _} ->
         []
 
@@ -132,6 +138,8 @@ defmodule Mix.Dn.Types do
 
   def type_to_default(key, t, :update) do
     case t do
+      {:array, :string} -> ["testing"]
+      {:array, :integer} -> [4]
       {:array, _} -> []
       {:enum, values} -> build_enum_values(values, :update)
       :integer -> 43

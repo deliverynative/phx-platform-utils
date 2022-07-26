@@ -9,7 +9,7 @@ defmodule <%= inspect schema.repo %>.Migrations.Create<%= Macro.camelize(schema.
 <% end %><%= for {k, v} <- schema.attrs do %>      add <%= inspect k %>, <%= inspect Mix.Phoenix.Schema.type_for_migration(v) %><%= schema.migration_defaults[k] %><%= if schema.requires[k] do %>, null: false<% end %>
 <% end %><%= for {key, :belongs_to, _, _, other} <- schema.assocs do %>      add <%= inspect(key) %>, references(<%= inspect(other) %>, on_delete: :nothing<%= if schema.binary_id do %>, type: :binary_id<% end %>)<%= if schema.requires[key] do %>, null: false<% end %>
 <% end %>
-<%= if schema.soft_delete do %>      soft_delete_schema()
+<%= if schema.soft_delete do %>      soft_delete_columns()
 <% end %>
       timestamps()
     end

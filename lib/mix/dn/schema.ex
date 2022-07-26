@@ -98,6 +98,7 @@ defmodule Mix.Dn.Schema do
     collection = if schema_plural == singular_entity_name, do: singular_entity_name <> "_collection", else: schema_plural
     string_attribute = Args.string_attribute(types)
     create_params = params(attributes, :create)
+    relations_params = params_with_relations(associations, requires)
 
     default_params_key =
       case Enum.at(create_params, 0) do
@@ -139,7 +140,8 @@ defmodule Mix.Dn.Schema do
       params: %{
         create: create_params,
         update: params(attributes, :update),
-        default_key: string_attribute || default_params_key
+        default_key: string_attribute || default_params_key,
+        relations: relations_params
       },
       web_namespace: web_namespace,
       web_path: web_path,
@@ -361,6 +363,17 @@ defmodule Mix.Dn.Schema do
 
         :error ->
           {attr, inspect(Types.type_to_default(attr, type, :create))}
+      end
+    end)
+  end
+
+  defp params_with_relations(assoc, reqs) do
+    Enum.reduce(assoc, %{}, fn ({name, _, _, parent, _}, params) ->
+      case Enum.member?(reqs, {name, true}) do
+        true ->
+          Map.put(params, name, "#{String.downcase(parent)}.id")
+        false ->
+          params
       end
     end)
   end

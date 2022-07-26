@@ -12,8 +12,7 @@ defmodule <%= inspect context.module %>.Factory do
     <% end %>
     %Model{
       # Don't forget to implement the rest of this map for fake data!
-      id: Faker.UUID.v4()<%= if length(schema.faker_attributes) > 0 do %>,
-      <% end %>
+      id: Faker.UUID.v4(),
       <%= for {col, def} <- schema.faker_attributes do %><%= col %>: <%= def %>,
       <% end %>
       <%= for {key, :belongs_to, _, _, _} <- schema.assocs do %><%= if Keyword.has_key?(context.factory_relations, key) do %><%= Kernel.elem(context.factory_relations[key], 2)%><% else %><%= key %>: nil,<% end %>
