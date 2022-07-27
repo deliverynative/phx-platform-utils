@@ -22,14 +22,17 @@ defmodule PhxPlatformUtils.MixProject do
   defp deps do
     [
       {:amqp, "~> 3.1"},
+      {:castore, ">= 0.0.0"},
       {:certifi, "~> 2.8"},
       {:ecto_sql, "~> 3.6"},
       {:faker, "~> 0.17"},
+      {:httpoison, "~> 1.8"},
       {:inflex, "~> 2.0.0"},
       {:jason, "~> 1.2"},
       {:joi, "~> 0.2.1"},
       {:phoenix, "~> 1.6.6"},
-      {:phoenix_ecto, "~> 4.4"}
+      {:phoenix_ecto, "~> 4.4"},
+      {:redix, "~> 1.1"}
     ]
   end
 end
