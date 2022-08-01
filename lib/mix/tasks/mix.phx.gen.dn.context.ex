@@ -59,17 +59,17 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
   @switches [
     binary_id: :boolean,
     table: :string,
-    web: :string,
+    web: :boolean,
     schema: :boolean,
     context: :boolean,
     context_app: :string,
     merge_with_existing_context: :boolean,
     prefix: :string,
     rebuild: :boolean,
-    soft_delete: :boolean
+    soft_delete: :boolean,
   ]
 
-  @default_opts [schema: true, context: true, rebuild: false, soft_delete: false]
+  @default_opts [schema: true, context: true, rebuild: false, soft_delete: false, web: false]
 
   @doc false
   def run(args) do
@@ -98,10 +98,7 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
   end
 
   @doc false
-  # TODO: look into allowing name change
-  # TODO: look into how to handle redacted flag for rebuild
-  # TODO: add validate_length to constraint parsing for tests + factory
-  # TODO: rework required attr to not null attr, go back to validate req. all
+
   def build(args, help \\ __MODULE__) do
     {opts, parsed, _} = parse_opts(args)
     [context_name, schema_name, plural | potential_schema_args] = validate_args!(parsed, help)
@@ -142,6 +139,7 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
   def copy_new_files(%Context{schema: schema} = context, paths, binding) do
     if schema.generate?, do: GenDnSchema.copy_new_files(schema, paths, binding)
     if context.opts[:rebuild], do: remove_old_files(context)
+    if context.opts[:json], do: generate_and_copy_web_files(context, paths, binding)
     inject_schema_access(context, paths, binding)
     inject_tests(context, paths, binding)
 
@@ -151,6 +149,23 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Context do
     )
 
     context
+  end
+
+  defp generate_and_copy_web_files(context, paths, binding) do
+    web_prefix = Mix.Phoenix.web_path(context.context_app)
+    test_prefix = Mix.Phoenix.web_test_path(context.context_app)
+    IO.inspect(context.controller_file)
+    IO.inspect(context.view_file)
+    IO.inspect(context.controller_test_file)
+    files =
+    [
+      {:eex,     "controller.ex",          context.controller_file},
+      {:eex,     "view.ex",                context.view_file},
+      {:eex,     "controller_test.exs",    context.controller_test_file},
+      {:new_eex, "changeset_view.ex",      context.changeset_view_file},
+      {:new_eex, "fallback_controller.ex", context.fallback_controller_file},
+    ]
+    Mix.Dn.copy_from(paths, "priv/templates/phx.gen.dn.json", binding, files)
   end
 
   @doc false

@@ -14,6 +14,11 @@ defmodule Mix.Dn.Context do
             file: nil,
             test_file: nil,
             factory_file: nil,
+            controller_file: nil,
+            view_file: nil,
+            controller_test_file: nil,
+            changeset_view_file: nil,
+            fallback_controller_file: nil,
             dir: nil,
             generate?: true,
             context_app: nil,
@@ -32,6 +37,13 @@ defmodule Mix.Dn.Context do
     basedir = Phoenix.Naming.underscore(context_name)
     basename = Path.basename(basedir)
     dir = Mix.Dn.context_lib_path(ctx_app, basedir) <> "/" <> schema.singular
+    web_dir = Mix.Dn.web_path(ctx_app)
+    controller_file = web_dir <> "/controllers/#{schema.singular}_controller.ex"
+    view_file = web_dir <> "/views/#{schema.singular}_view.ex"
+    controller_test_file = web_dir <> "/controllers/#{schema.singular}_controller_test.exs"
+    changeset_view_file = web_dir <> "/views/changeset_view.ex"
+    fallback_controller_file = web_dir <> "/controllers/fallback_controller.ex"
+
     file = dir <> "/service.ex"
     test_file = dir <> "/test.exs"
     factory_file = dir <> "/factory.ex"
@@ -50,6 +62,11 @@ defmodule Mix.Dn.Context do
       file: file,
       test_file: test_file,
       factory_file: factory_file,
+      view_file: view_file,
+      controller_file: controller_file,
+      controller_test_file: controller_test_file,
+      changeset_view_file: changeset_view_file,
+      fallback_controller_file: fallback_controller_file,
       dir: dir,
       generate?: generate?,
       context_app: ctx_app,
