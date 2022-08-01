@@ -36,6 +36,12 @@ defmodule Mix.Dn.Types do
       {col, :utc_datetime_usec} ->
         {col, "Faker.DateTime.backward(10)"}
 
+      {col, {:array, :string}} ->
+        {col, "Faker.Util.list(3, &(to_string(&1)))"}
+
+      {col, {:array, :integer}} ->
+        {col, "Faker.Util.list(3, &(&1))"}
+
       {col, _} ->
         {col, nil}
     end
@@ -71,6 +77,12 @@ defmodule Mix.Dn.Types do
 
   def type_to_default(key, t, :create) do
     case t do
+      {:array, :string} ->
+        ["test"]
+
+      {:array, :integer} ->
+        [1, 2, 3]
+
       {:array, _} ->
         []
 
@@ -126,6 +138,8 @@ defmodule Mix.Dn.Types do
 
   def type_to_default(key, t, :update) do
     case t do
+      {:array, :string} -> ["testing"]
+      {:array, :integer} -> [4]
       {:array, _} -> []
       {:enum, values} -> build_enum_values(values, :update)
       :integer -> 43

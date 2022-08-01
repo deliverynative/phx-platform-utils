@@ -14,10 +14,16 @@ defmodule Mix.Dn.Context do
             file: nil,
             test_file: nil,
             factory_file: nil,
+            controller_file: nil,
+            view_file: nil,
+            controller_test_file: nil,
+            changeset_view_file: nil,
+            fallback_controller_file: nil,
             dir: nil,
             generate?: true,
             context_app: nil,
-            opts: []
+            opts: [],
+            factory_relations: []
 
   def valid?(context) do
     context =~ ~r/^[A-Z]\w*(\.[A-Z]\w*)*$/
@@ -31,10 +37,18 @@ defmodule Mix.Dn.Context do
     basedir = Phoenix.Naming.underscore(context_name)
     basename = Path.basename(basedir)
     dir = Mix.Dn.context_lib_path(ctx_app, basedir) <> "/" <> schema.singular
+    web_dir = Mix.Dn.web_path(ctx_app)
+    controller_file = web_dir <> "/controllers/#{schema.singular}_controller.ex"
+    view_file = web_dir <> "/views/#{schema.singular}_view.ex"
+    controller_test_file = web_dir <> "/controllers/#{schema.singular}_controller_test.exs"
+    changeset_view_file = web_dir <> "/views/changeset_view.ex"
+    fallback_controller_file = web_dir <> "/controllers/fallback_controller.ex"
+
     file = dir <> "/service.ex"
     test_file = dir <> "/test.exs"
     factory_file = dir <> "/factory.ex"
     generate? = Keyword.get(opts, :context, true)
+    factory_relations = derive_factory_relations(schema.requires, schema.assocs)
 
     %Context{
       name: context_name,
@@ -48,11 +62,33 @@ defmodule Mix.Dn.Context do
       file: file,
       test_file: test_file,
       factory_file: factory_file,
+      view_file: view_file,
+      controller_file: controller_file,
+      controller_test_file: controller_test_file,
+      changeset_view_file: changeset_view_file,
+      fallback_controller_file: fallback_controller_file,
       dir: dir,
       generate?: generate?,
       context_app: ctx_app,
-      opts: opts
+      opts: opts,
+      factory_relations: factory_relations
     }
+  end
+
+  defp derive_factory_relations(requires, associations) do
+    Enum.reduce(associations, [], fn ({name, _, mod_path, mod, _}, factory_assoc) ->
+      case Enum.member?(requires, {name, true}) do
+        true ->
+          Keyword.put(factory_assoc, name,
+            {"alias #{mod_path}.Factory, as: #{mod}Factory",
+             "#{String.downcase(mod)} = #{mod}Factory.create!()",
+             "#{Atom.to_string(name)}: #{String.downcase(mod)}.id,",
+             "#{String.downcase(mod)}.id"
+            })
+        false ->
+          factory_assoc
+      end
+    end)
   end
 
   def pre_existing?(%Context{file: file}), do: File.exists?(file)

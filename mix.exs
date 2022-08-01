@@ -24,6 +24,7 @@ defmodule PhxPlatformUtils.MixProject do
       {:amqp, "~> 3.1"},
       {:castore, ">= 0.0.0"},
       {:certifi, "~> 2.8"},
+      {:ecto_soft_delete, "~> 2.0"},
       {:ecto_sql, "~> 3.6"},
       {:faker, "~> 0.17"},
       {:httpoison, "~> 1.8"},
