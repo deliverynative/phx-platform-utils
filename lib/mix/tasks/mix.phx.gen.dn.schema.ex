@@ -7,7 +7,7 @@ defmodule Mix.Tasks.Phx.Gen.Dn.Schema do
     migration: :boolean,
     binary_id: :boolean,
     table: :string,
-    web: :string,
+    web: :boolean,
     context_app: :string,
     prefix: :string,
     soft_delete: :boolean

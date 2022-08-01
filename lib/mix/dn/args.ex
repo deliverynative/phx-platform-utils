@@ -17,7 +17,7 @@ defmodule Mix.Dn.Args do
     {Enum.reverse(attributes), uniques, redacts, requires}
   end
 
-  # Recursively splits flags to strip out :unique and :redact types
+  # Recursively splits flags to strip out :required, :unique and :redact types
   defp split_flags(["unique" | rest], name, attributes, uniques, redacts, requires),
     do: split_flags(rest, name, attributes, [name | uniques], redacts, requires)
 

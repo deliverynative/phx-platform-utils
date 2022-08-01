@@ -33,8 +33,10 @@ defmodule Mix.Dn.Rebuild do
           case String.split(field, ",") do
             [relation, _, extra] ->
               [key] = Regex.run(~r/^ foreign_key: :(\S+)$/, extra, [capture: :all_but_first])
-              ["#{key}:#{String.replace(relation, " ", "")}s" | parsed_list]
+              IO.inspect(String.replace(relation, " ", ""))
+              ["#{key}:#{String.replace(relation, " ", "")}" | parsed_list]
             [relation, _] ->
+              IO.inspect(String.replace(relation, " ", ""))
               ["#{String.replace(relation, " ", "")}" | parsed_list]
           end
         String.starts_with?(field, "soft_delete_schema") ->
