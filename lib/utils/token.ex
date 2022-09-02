@@ -12,7 +12,7 @@ defmodule PhxPlatformUtils.Utils.Token do
   end
 
   def get_matching_permissions(conn, allowed_permissions) do
-    allowed = allowed_permissions |> MapSet.new()
+    allowed = allowed_permissions |> MapSet.new() |> MapSet.put("sys:admin")
 
     conn
     |> claims()
