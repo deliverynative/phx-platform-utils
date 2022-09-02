@@ -7,6 +7,7 @@ defmodule PhxPlatformUtils.Utils.RequestHelpers do
   def recursively_atomize(map) when is_map(map) and not is_struct(map) do
     map
     |> Enum.map(fn {key, value} -> {String.to_atom(key), recursively_atomize(value)} end)
+    |> Enum.into(%{})
   end
 
   def recursively_atomize(any), do: any
