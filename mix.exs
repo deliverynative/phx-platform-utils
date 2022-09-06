@@ -21,12 +21,12 @@ defmodule PhxPlatformUtils.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:amqp, "~> 3.1"},
       {:castore, ">= 0.0.0"},
       {:certifi, "~> 2.8"},
       {:ecto_soft_delete, "~> 2.0"},
       {:ecto_sql, "~> 3.6"},
       {:faker, "~> 0.17"},
+      {:gen_rmq, "~> 4.0"},
       {:httpoison, "~> 1.8"},
       {:inflex, "~> 2.0.0"},
       {:jason, "~> 1.2"},
