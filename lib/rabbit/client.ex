@@ -15,25 +15,33 @@ defmodule PhxPlatformUtils.Rabbit.Client do
   end
 
   def init(opts) do
+    rabbitmq_connect(opts)
+  end
+
+  defp rabbitmq_connect(opts) do
     ssl_options = if opts[:use_ssl], do: build_ssl_options(), else: []
     uri_options = [username: opts[:user], password: opts[:pass], host: opts[:host], port: opts[:port]]
 
     options = Keyword.merge(uri_options, ssl_options)
 
-    try do
-      {:ok, conn} = Connection.open(options)
-      Logger.debug("RabbitMQ: connection opened")
-      {:ok, chan} = Channel.open(conn)
-      Logger.debug("RabbitMQ: channel opened")
-      {:ok} = setup_queues(chan, opts[:subscriptions])
-      :ok = Basic.qos(chan, prefetch_count: 10)
-      Logger.debug("RabbitMQ: initialization finished, success!")
-      {:ok, chan}
-    rescue
-      exception ->
+    case Connection.open(options) do
+      {:ok, conn} ->
+        # Get notifications when the connection goes down
+        Process.monitor(conn.pid)
+        Logger.debug("RabbitMQ: connection opened")
+        {:ok, chan} = Channel.open(conn)
+        Logger.debug("RabbitMQ: channel opened")
+        {:ok} = setup_queues(chan, opts[:subscriptions])
+        :ok = Basic.qos(chan, prefetch_count: 10)
+        Logger.debug("RabbitMQ: initialization finished, success!")
+        {:ok, chan}
+
+      {:error, exception} ->
         Logger.error("RabbitMQ: initialization failed:")
         Logger.error(exception)
-        {:error, exception}
+        # Reconnection loop
+        :timer.sleep(10000)
+        rabbitmq_connect(opts)
     end
   end
 
