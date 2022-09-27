@@ -1,5 +1,6 @@
 defmodule PhxPlatformUtils.Jobs.Base do
   alias PhxPlatformUtils.Jobs.Model
+  alias PhxPlatformUtils.Utils.RequestHelpers
 
   @moduledoc """
     Base module for all jobs.
@@ -58,15 +59,38 @@ defmodule PhxPlatformUtils.Jobs.Base do
       # @behaviour behaviour
       require Logger
 
+      def log_for_job(message, level \\ :info) do
+        %{jid: exq_job_id} = Exq.worker_job()
+        message = "#{__MODULE__}[#{exq_job_id}]: #{message}"
+
+        case level do
+          :debug -> Logger.debug(message)
+          :error -> Logger.error(message)
+          :info -> Logger.info(message)
+          :warn -> Logger.warn(message)
+          _ -> Logger.info(message)
+        end
+      end
+
       def get_active_execution_lock_for_hash(hash) do
         Model
         |> where([m], m.hash == ^hash)
         |> where([m], is_nil(m.completed_at))
+        |> first()
         |> unquote(@repo).one()
       end
 
-      def insert_execution_lock(hash, encoded_params) do
+      def get_latest_execution_for_hash(hash) do
+        Model
+        |> where([m], m.hash == ^hash)
+        |> order_by(desc: :completed_at)
+        |> first()
+        |> unquote(@repo).one()
+      end
+
+      def insert_execution_lock(hash, encoded_params, attempt) do
         unquote(@repo).insert!(%Model{
+          attempt: attempt,
           hash: hash,
           encoded_parameters: encoded_params,
           job_name: unquote(@job_name)
@@ -102,40 +126,48 @@ defmodule PhxPlatformUtils.Jobs.Base do
 
       def execution_locked_with_param_hash(params) do
         with locked_params <- lock_params(params),
-             true <- Enum.empty?(locked_params),
+             false <- is_nil(locked_params) || Enum.empty?(locked_params),
              {:ok, hash} <- get_hash(locked_params) do
           active_execution = get_active_execution_lock_for_hash(hash)
-          {active_execution.id, hash}
+          {active_execution, hash}
         else
-          _ -> {false, nil}
+          true ->
+            log_for_job("#{__MODULE__}.lock_params/1 did not return a lockable state, skipping to execute/1.")
+            {false, nil}
         end
       end
 
       def perform(params) do
         try do
-          Logger.info("Job[name: #{unquote(@job_name)}]: determining lock state.")
-          {locker_id, hash} = execution_locked_with_param_hash(params)
-          encoded_params = params |> encode_params()
+          atomized_params = params |> RequestHelpers.recursively_atomize()
+          log_for_job("determining lock state.")
+          {locker_record, hash} = execution_locked_with_param_hash(atomized_params)
 
-          if locker_id do
-            Logger.info("Job[name: #{unquote(@job_name)}]: execution locked by #{locker_id}")
-            nil
-          else
-            with %Model{} = inserted_record <- insert_execution_lock(hash, encoded_params) do
-              try do
-                execute(params)
-              rescue
-                e ->
-                  Logger.error("Job[name: #{unquote(@job_name)}, id: #{inserted_record.id}]: execution failed with error: #{inspect(e)}")
-              after
-                update_execution(inserted_record, %{completed_at: DateTime.utc_now()})
-                Logger.info("Jobs[name: #{unquote(@job_name)}, id: #{inserted_record.id}]: execution successfully completed.")
-              end
-            end
+          if locker_record, do: raise(:locked)
+
+          previous_execution = get_latest_execution_for_hash(hash)
+
+          attempt_number = if previous_execution != nil, do: Map.get(previous_execution, :attempt) + 1, else: 1
+
+          encoded_params = atomized_params |> encode_params()
+
+          with %Model{} = inserted_record <- insert_execution_lock(hash, encoded_params, attempt_number) do
+            execute(atomized_params)
+            update_execution(inserted_record, %{completed_at: DateTime.utc_now(), succeeded: true})
+            log_for_job("id: #{inserted_record.id}]: execution successfully completed.")
           end
         rescue
-          any ->
-            Logger.error("Job[name: #{unquote(@job_name)}]: execution failed with unexpected error: #{inspect(any)}")
+          Ecto.ConstraintError ->
+            log_for_job("execution locked by another process.")
+            nil
+
+          :locked ->
+            log_for_job("execution locked by another process.")
+            nil
+
+          err ->
+            log_for_job("execution failed with unexpected error: #{inspect(err)}", :error)
+            raise err
         end
       end
     end
