@@ -37,7 +37,8 @@ defmodule PhxPlatformUtils.Utils.Helpers do
     decimalized_offset_string = unless String.contains?(offset_decimal_string, "."), do: offset_decimal_string <> ".0", else: offset_decimal_string
     [_, negative, hour, min] = Regex.run(~r/(-?)([0-9]+)\.?([0-9]+)?/, decimalized_offset_string)
 
-    offset = negative <> String.pad_leading(hour, 2, "0") <> ":" <> String.pad_trailing(min, 2, "0")
+    symbol = if String.length(negative) > 0, do: "-", else: "+"
+    offset = symbol <> String.pad_leading(hour, 2, "0") <> ":" <> String.pad_trailing(min, 2, "0")
     {date, time} = get_date_and_time_from_olo_format(olo_formatted_datetime)
 
     iso8601 = Date.to_string(date) <> "T" <> Time.to_iso8601(time) <> offset
