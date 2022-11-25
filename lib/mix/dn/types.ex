@@ -7,19 +7,19 @@ defmodule Mix.Dn.Types do
   def determine_faker_generator_for_type({column, type}) do
     case {column, type} do
       {col, :string} ->
-        {col, "Faker.Cat.name()"}
+        {col, "Faker.Cat.name() <> (Faker.Random.Elixir.random_between(10000, 99999) |> Integer.to_string())"}
 
       {col, :uuid} ->
         {col, "Faker.UUID.v4()"}
 
       {col, :integer} ->
-        {col, "Faker.Random.Elixir.random_between(0, 100)"}
+        {col, "Faker.Random.Elixir.random_between(0, 9999)"}
 
       {col, :float} ->
-        {col, "Faker.Random.Elixir.random_between(0, 10)/2"}
+        {col, "Faker.Random.Elixir.random_between(0, 9999)/2"}
 
       {col, :decimal} ->
-        {col, "Decimal.from_float(Faker.Random.Elixir.random_between(0, 10)/2)"}
+        {col, "Decimal.from_float(Faker.Random.Elixir.random_between(0, 9999)/2)"}
 
       {col, :boolean} ->
         {col, "Faker.Util.pick([true, false])"}
