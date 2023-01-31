@@ -4,11 +4,15 @@ defmodule PhxPlatformUtils.Utils.Token do
   def claims(conn) do
     base = conn.assigns[:user] || %{}
 
-    base
-    |> Map.merge(%{
-      email: Map.get(base, :"https://deliverynative.com/email")
-    })
-    |> Map.delete(:"https://deliverynative.com/email")
+    override_email = base |> Map.get(:"https://deliverynative.com/email", nil)
+
+    if override_email != nil do
+      base
+      |> Map.merge(%{email: override_email})
+      |> Map.delete(:"https://deliverynative.com/email")
+    else
+      base
+    end
   end
 
   def get_matching_permissions(conn, allowed_permissions) do
