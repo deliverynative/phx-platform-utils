@@ -31,6 +31,7 @@ defmodule PhxPlatformUtils.MixProject do
       {:inflex, "~> 2.0.0"},
       {:jason, "~> 1.2"},
       {:joi, "~> 0.2.1"},
+      {:logger_json, "~> 5.1"},
       {:phoenix, "~> 1.6.6"},
       {:phoenix_ecto, "~> 4.4"},
       {:redix, "~> 1.1"}
